@@ -62,6 +62,32 @@
         #main {
             margin: 10px 20px;
         }
+
+        #footer-links a {
+            display: block;
+        }
+
+        footer {
+            margin-top: 80px;
+            margin-left: 40px;
+        }
+
+
+        #spreadsheet-cells {
+            max-height: 800px;
+            overflow: hidden;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .cell {
+            width: 60px;
+            height: 20px;
+            background-color: var(--grey3);
+            border: 1px solid var(--grey4);
+        }
     </style>
 </head>
 
@@ -78,7 +104,7 @@
         <h1>Tao Lin's Website</h1>
         <p>I am interested in virtual reality, programming languages, functional programming, artificial
             intelligence, AI existential risk, rationality, and effective altruism.</p>
-        <p>I program in Clojure, TypeScript, and most recently C#. I'm currently working on a VR tool for working
+        <p>I program in Clojure, JavaScript, C#, and C++. I'm currently working on a VR tool for working
             inside network graphs.</p>
         <p>My favorite musician is <a href="https://open.spotify.com/artist/0xu4jAQQv7ZAqvFGdc9HgP?autoplay=true">Boy in
                 Space</a>, my
@@ -86,14 +112,40 @@
                 120 Cell</a>, my favorite video game is <a
                 href="https://store.steampowered.com/app/617830/SUPERHOT_VR/">Superhot VR</a></p>
         <p>This website is meant to test how performant a website can be if performance is truly the #1 priority</p>
+        <div id="spreadsheet">
+            <div id="spreadsheet-cells">
+
+            </div>
+        </div>
     </div>
     <footer>
-        <div style="display: flex; flex-direction: column; margin-top: 80px;">
-            <div class="my-links"><a href="https://twitter.com/taoroalin">twitter</a><a
-                    href="https://github.com/taoroalin">github</a><a href="mailto:taoroalin@gmail.com">email</a><a
-                    href="https://roamresearch.com/#/app/graphminer">personal notes</a></div>
-            <p>This website was made with this <a href="https://github.com/taoroalin/personal-website">source
-                    code</a> in ClojureScript with Reagent.</p>
+        <div id="footer-links">
+            <a href="https://twitter.com/taoroalin">twitter</a>
+            <a href="https://github.com/taoroalin">github</a><a href="mailto:taoroalin@gmail.com">email</a>
+            <a href="https://roamresearch.com/#/app/graphminer">personal notes</a>
         </div>
     </footer>
+    <script>
+        const timeFunc = (f, n = "") => {
+            const stime = performance.now();
+            f();
+            console.log(`Function ${n} took ${performance.now() - stime}`)
+        }
+        const cols = 26, rows = 1000;
+        const createCells = () => {
+            const spreadsheet = document.getElementById("spreadsheet-cells");
+            for (let r = 0; r < rows; r++) {
+                const row = document.createElement("div");
+                row.className = "row"
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement("div");
+                    cell.id = "r" + r + "c" + c;//`r${r}c${c}`;
+                    cell.className = "cell";
+                    row.appendChild(cell)
+                }
+                spreadsheet.appendChild(row);
+            }
+        }
+        timeFunc(createCells, "createCells");
+    </script>
 </body>
