@@ -1,12 +1,86 @@
-<html>
-
 <head>
+    <title>Tao Lin</title>
+    <style>
+        :root {
+            --grey1: #111111;
+            --grey2: #444444;
+            --grey3: #666666;
+            --white1: #eeeeee;
+            --blue: rgb(29, 56, 212);
+            --purple: rgb(130, 21, 180);
+        }
 
+        body {
+            background-color: var(--grey1);
+            color: var(--white1);
+            font-family: Verdana, Arial;
+            margin: 0;
+        }
+
+        a {
+            color: var(--blue);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        a:visited {
+            color: var(--purple);
+        }
+
+        #nav {
+            background-color: var(--grey2);
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #nav a {
+            font-size: 28px;
+            padding: 12px 16px;
+            color: var(--white1);
+            display: block;
+        }
+
+        #nav .right {
+            display: flex;
+        }
+
+        #nav .right a {
+            font-size: 20px;
+        }
+    </style>
 </head>
 
 <body>
+    <div id="nav">
+        <a id="home">Tao Lin</a>
+        <div class="right">
+            <a href="/about">About</a><a href="/blog">Blog</a> <a href="https://boiling-peak-00646.herokuapp.com/">Web
+                Dev
+                Demo</a>
+        </div>
+    </div>
     <h1>Tao Lin's Website</h1>
+    <p>I am interested in virtual reality, programming languages, functional programming, artificial
+        intelligence, AI existential risk, rationality, and effective altruism.</p>
+    <p>I program in Clojure, TypeScript, and most recently C#. I'm currently working on a VR tool for working
+        inside network graphs.</p>
+    <p>My favorite musician is <a href="https://open.spotify.com/artist/0xu4jAQQv7ZAqvFGdc9HgP?autoplay=true">Boy in
+            Space</a>, my
+        favorite shape is the <a href="https://en.wikipedia.org/wiki/Great_stellated_120-cell">Great Stellated
+            120 Cell</a>, my favorite video game is <a
+            href="https://store.steampowered.com/app/617830/SUPERHOT_VR/">Superhot VR</a></p>
     <p>This website is meant to test how performant a website can be if performance is truly the #1 priority</p>
+    <footer>
+        <div style="display: flex; flex-direction: column; margin-top: 80px;">
+            <div class="my-links"><a href="https://twitter.com/taoroalin">twitter</a><a
+                    href="https://github.com/taoroalin">github</a><a href="mailto:taoroalin@gmail.com">email</a><a
+                    href="https://roamresearch.com/#/app/graphminer">personal notes</a></div>
+            <p>This website was made with this <a href="https://github.com/taoroalin/personal-website">source
+                    code</a> in ClojureScript with Reagent.</p>
+        </div>
+    </footer>
 </body>
-
-</html>
