@@ -209,31 +209,58 @@
 
         });
 
+        const pasteCSVStandard = (raw) => {
+            const rowsText = raw.split("\n");
+            const r0 = focusedCell.row, c0 = focusedCell.col;
+            const rowDivs = spreadsheet.children;
+            for (let r = 0; r < rowsText.length && r0 + r < rows; r++) {
+                const colDivs = rowDivs[r0 + r].children;
+                const colsText = rowsText[r].split(",");
+                for (let c = 0; c < colsText.length && c0 + c < cols; c++) {
+                    colDivs[c0 + c].innerText = colsText[c];
+                }
+            }
+        }
+
         const pasteCSVManual = (raw) => {
             let c0 = focusedCell.col, r = focusedCell.row, c = focusedCell.col; // row and col pasting data into
             let cellStart = 0;
             for (let i = 0; i < raw.length; i++) {
                 switch (raw[i]) {
                     case ",":
+                        //console.log(`",", start ${cellStart} i ${i} sstr ${raw.substring(cellStart, i)}`)
                         getCell(r, c).innerText = raw.substring(cellStart, i);
                         cellStart = i + 1;
                         c += 1;
+
+                        // skip rest of line if at end
+                        if (c === cols - 1) {
+                            while (i < raw.length && raw[i] !== "\n") {
+                                i += 1;
+                            }
+                            r += 1;
+                            c = c0;
+                        }
                         break;
                     case "\n":
                         getCell(r, c).innerText = raw.substring(cellStart, i);
                         cellStart[i] += 1;
                         r += 1;
                         c = c0;
+
+                        if (r === rows - 1) {
+                            i = raw.length; // bad way to break
+                        }
+                        break;
                 }
             }
-            if (i < raw.length - 1) {
-                getCell(r, c).innerText = raw.substring(cellStart, i + 1);
-            }
+            getCell(r, c).innerText = raw.substring(cellStart);
         }
 
         input.addEventListener('paste', (event) => { // paste csv into cells
             event.preventDefault();
-            timeFunc(pasteCSVManual, "pasteCSVManual", event.clipboardData.getData("text"))
+            //timeFunc(pasteCSVManual, "pasteCSVManual", event.clipboardData.getData("text"))
+            timeFunc(pasteCSVStandard, "pasteCSVStandard", event.clipboardData.getData("text"))
         });
     }
     const getCell = (r, c) => spreadsheet.children[r].children[c];
