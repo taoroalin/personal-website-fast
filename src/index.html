@@ -50,7 +50,7 @@
     }
 
     #nav a {
-        font-size: 28px;
+        font-size: 36px;
         padding: 12px 16px;
         color: var(--white0);
         display: block;
@@ -62,7 +62,7 @@
 
     #nav .right a {
         font-size: 20px;
-        margin-top: 4px;
+        margin-top: 8px;
     }
 
     #main {
@@ -74,14 +74,18 @@
     }
 
     footer {
-        margin-top: 80px;
-        margin-left: 40px;
+        background-color: var(--grey2);
+        border: 2px solid var(--grey4);
+        border-width: 1px 0 0 0;
+        padding: 40px 0 40px 40px;
+        margin: 40px 0 0 0;
     }
-
 
     #spreadsheet-cells {
         max-height: 800px;
-        overflow: auto;
+        max-width: 100%;
+        overflow-x: scroll;
+        overflow-y: scroll;
     }
 
     #spreadsheet-cells div {
@@ -89,9 +93,8 @@
     }
 
     #spreadsheet-cells div div {
-        width: 40px;
-        max-width: 40px;
-        overflow: visible;
+        width: 50px;
+        max-width: 50px;
         height: 20px;
         background-color: var(--grey3);
         border: 1px solid var(--grey4);
@@ -103,9 +106,25 @@
         padding: 0px;
         max-width: 60px;
     }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
 </style>
 <div id="nav">
-    <a id="home">Tao Lin</a>
+    <a id="home">Tao Roa Lin</a>
     <div class="right">
         <a href="/about">About</a><a href="/blog">Blog</a> <a href="https://boiling-peak-00646.herokuapp.com/">Web
             Dev
@@ -113,6 +132,7 @@
     </div>
 </div>
 <div id="main">
+    <p>JK, there's just dark mode :)</p>
     <h1>Tao Lin's Website</h1>
     <p>I am interested in virtual reality, programming languages, functional programming, artificial
         intelligence, AI existential risk, rationality, and effective altruism.</p>
@@ -137,12 +157,52 @@
         <a href="https://roamresearch.com/#/app/graphminer">personal notes</a>
     </div>
 </footer>
+<template id="template">
+    <li id="theid" class="theclass theclass2"><a href="/broken/link">Broken link</a><a
+            href="https://example.com">Working link</a><button style="color: red;">clickable</button></li>
+</template>
+<div id="templateRoot"></div>
+<div id="testDomRoot"></div>
+<div id="treeTest"></div>
 <script type="text/javascript"> // TODO minify-html isn't correctly minifying js
     const timeFunc = (f, n, ...args) => {
         const stime = performance.now();
         f.apply({}, args);
         console.log(`Function ${n} took ${performance.now() - stime}`)
     }
+
+    const ExpTypes = Object.freeze({ NUMBER: 0, OOA: 1, OP: 2, REF: 3, ATOMIC: 4 })
+    const exampleParse = { type: ExpTypes.OOA, order: 0, op: "+", children: [{ type: ExpTypes.NUMBER, number: 1 }, { type: ExpTypes.NUMBER, number: 2 }] }
+    const parseExpression = (raw) => {
+        let parenLevel = 0;
+        const result = {};
+        const lastType = null;
+        let i = 0; // current char
+        while (i < raw.length) {
+            const char = raw[i];
+            if (char === "+") {
+
+            }
+        }
+        return result;
+    }
+
+
+    const pureWordRx = /[a-zA-Z]+/;
+    const pureTextRx = /[a-zA-Z0-9\,\.\?\\\/ ]+/;
+    const parseRoam = (raw) => {
+        const result = {};
+        const stack = [result];
+        let i = 0;
+        while (i < raw.length) {
+            if (raw) {
+
+            }
+
+        }
+    }
+
+
     const cols = 26, rows = 100;
     let focusedCell = null;
     let spreadsheet, input;
@@ -154,6 +214,7 @@
             for (let c = 0; c < cols; c++) {
                 const cell = document.createElement("div");
                 cell.col = c;
+                //cell.raw=undefined
                 row.appendChild(cell)
             }
             spreadsheet.appendChild(row);
@@ -209,7 +270,7 @@
 
         });
 
-        const pasteCSVStandard = (raw) => {
+        const pasteCSV = (raw) => {
             const rowsText = raw.split("\n");
             const r0 = focusedCell.row, c0 = focusedCell.col;
             const rowDivs = spreadsheet.children;
@@ -222,45 +283,9 @@
             }
         }
 
-        const pasteCSVManual = (raw) => {
-            let c0 = focusedCell.col, r = focusedCell.row, c = focusedCell.col; // row and col pasting data into
-            let cellStart = 0;
-            for (let i = 0; i < raw.length; i++) {
-                switch (raw[i]) {
-                    case ",":
-                        //console.log(`",", start ${cellStart} i ${i} sstr ${raw.substring(cellStart, i)}`)
-                        getCell(r, c).innerText = raw.substring(cellStart, i);
-                        cellStart = i + 1;
-                        c += 1;
-
-                        // skip rest of line if at end
-                        if (c === cols - 1) {
-                            while (i < raw.length && raw[i] !== "\n") {
-                                i += 1;
-                            }
-                            r += 1;
-                            c = c0;
-                        }
-                        break;
-                    case "\n":
-                        getCell(r, c).innerText = raw.substring(cellStart, i);
-                        cellStart[i] += 1;
-                        r += 1;
-                        c = c0;
-
-                        if (r === rows - 1) {
-                            i = raw.length; // bad way to break
-                        }
-                        break;
-                }
-            }
-            getCell(r, c).innerText = raw.substring(cellStart);
-        }
-
         input.addEventListener('paste', (event) => { // paste csv into cells
             event.preventDefault();
-            //timeFunc(pasteCSVManual, "pasteCSVManual", event.clipboardData.getData("text"))
-            timeFunc(pasteCSVStandard, "pasteCSVStandard", event.clipboardData.getData("text"))
+            timeFunc(pasteCSV, "pasteCSV", event.clipboardData.getData("text"))
         });
     }
     const getCell = (r, c) => spreadsheet.children[r].children[c];
@@ -268,8 +293,111 @@
     const focusCell = (row, col) => {
         focusedCell = { row, col }
         getCell(row, col).appendChild(input);
-        setTimeout(() => input.focus(), 0);
+        setTimeout(() => input.focus(), 0); // todo make this faster
     }
 
-    timeFunc(initSheet, "initSheet");
+    //timeFunc(initSheet, "initSheet");
+
+    const testTemplatePlain = () => {
+        const template = document.getElementById("template");
+        const root = document.getElementById("templateRoot");
+        for (let i = 0; i < 1000; i++) {
+            const clon = template.content.cloneNode(true);
+            root.appendChild(clon);
+        }
+    }
+    const testTemplate = () => {
+        const template = document.getElementById("template").content;
+        const root = document.getElementById("templateRoot");
+        for (let i = 0; i < 1000; i++) {
+            const clon = template.cloneNode(true);
+            clon.querySelector("a").style.color = "pink";
+            clon.querySelector("button").innerText = "asdfasdfasfnabnnng s sfah fasd afsd";
+            root.appendChild(clon);
+        }
+    }
+    //timeFunc(testTemplate, "template");
+
+    const testDom = () => {
+        const testDomRoot = document.getElementById("testDomRoot");
+        for (let i = 0; i < 1000; i++) {
+
+            const li = document.createElement("li");
+            li.id = "theid";
+            li.className = "theclass theclass2";
+            const a1 = document.createElement('a');
+            a1.href = "/broken/link";
+            a1.innerText = "Broken Link";
+            const a2 = document.createElement('a');
+            a2.href = "https://example.com";
+            a2.innerText = "Working link"
+            const b1 = document.createElement('button');
+            b1.onclick = () => console.log("clicked");
+            b1.style.color = "red";
+            b1.innerText = "hello";
+            li.appendChild(a1);
+            li.appendChild(a2);
+            li.appendChild(b1);
+            testDomRoot.appendChild(li);
+        }
+    }
+    //timeFunc(testDom, "Dom");
+
+
+    // hot reloading for development :)
+    window.addEventListener('focus', () => location.reload());
+    // look at how much simpler this is than express server!!!!
+</script>
+
+<template id="page-link-template">
+    <span class="roam-page-link"><span>[[</span><a class="slot"></a><span>]]</span></span>
+</template>
+<template id="bold-template">
+    <span class="roam-bold slot"></span>
+</template>
+<template id="text-template">
+    <span class="roam-text slot"></span>
+</template>
+
+<script>
+    const renderers = {
+        "page-link": (nodeData, children) => {
+            const node = document.getElementById("page-link-template").content.cloneNode(true);
+            const slot = node.querySelector(".slot");
+            if (slot !== undefined) {
+                children.forEach(element => slot.appendChild(element));
+            }
+            return node;
+        },
+        "text": (nodeData, children) => {
+            const node = document.getElementById("text-template").content.cloneNode(true);
+            const slot = node.querySelector(".slot");
+            if (slot !== undefined) {
+                children.forEach(element => slot.appendChild(element));
+            }
+            return node;
+        },
+        "bold": (nodeData, children) => {
+            const node = document.getElementById("bold-template").content.cloneNode(true);
+            const slot = node.querySelector(".slot");
+            slot.style.color = "pink";
+            if (slot !== undefined) {
+                children.forEach(element => slot.appendChild(element));
+            }
+            return node;
+        }
+    }
+    const treeToDom = (tree) => {
+        if (typeof (tree) === "string") {
+            return document.createTextNode(tree);
+        }
+        return renderers[tree.type](tree.nodeData, tree.children.map(treeToDom));
+    }
+
+    const exampleTree = { type: "text", children: [...Array(1000)].map(() => ({ type: "bold", children: [{ type: "page-link", children: ["linkeydinkey!"] }, "hello!", { type: "bold", children: [{ type: "page-link", children: ["hiho", "wheeee"] }] }] })) }
+    const testTreeToDom = () => {
+        document.getElementById("treeTest").appendChild(treeToDom(exampleTree));
+    }
+
+    timeFunc(testTreeToDom, "tree to dom")
 </script>

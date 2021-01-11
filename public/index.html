@@ -1,147 +1,19 @@
-<style>:root{--grey0:black;--grey1:#1e1e1e;--grey2:#252526;--grey3:#333333;--grey4:#3c3c3c;--white0:white;--white1:#eeeeee;--white2:#d4d4d4;--white3:#cccccc;--white4:#858585;--blue:rgb(29, 56, 212);--purple:rgb(130, 21, 180)}body{background-color:var(--grey1);color:var(--white2);font-family:Verdana,Arial;margin:0}input{appearance:none;outline:0;border:none;box-shadow:none}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--purple)}#nav{background-color:var(--grey4);width:100%;display:flex;justify-content:space-between}#nav a{font-size:28px;padding:12px 16px;color:var(--white0);display:block}#nav .right{display:flex}#nav .right a{font-size:20px;margin-top:4px}#main{margin:10px 20px}#footer-links a{display:block}footer{margin-top:80px;margin-left:40px}#spreadsheet-cells{max-height:800px;overflow:auto}#spreadsheet-cells div{display:flex}#spreadsheet-cells div div{width:40px;max-width:40px;overflow:visible;height:20px;background-color:var(--grey3);border:1px solid var(--grey4)}#spreadsheet-input{border-radius:0;margin:0;padding:0;max-width:60px}</style><title>Tao Lin</title>
-<style>
-    :root {
-        --grey0: black;
-        --grey1: #1e1e1e;
-        --grey2: #252526;
-        --grey3: #333333;
-        --grey4: #3c3c3c;
-        --white0: white;
-        --white1: #eeeeee;
-        --white2: #d4d4d4;
-        --white3: #cccccc;
-        --white4: #858585;
-        --blue: rgb(29, 56, 212);
-        --purple: rgb(130, 21, 180);
-    }
-
-    body {
-        background-color: var(--grey1);
-        color: var(--white2);
-        font-family: Verdana, Arial;
-        margin: 0;
-    }
-
-    input {
-        appearance: none;
-        outline: none;
-        border: none;
-        box-shadow: none;
-    }
-
-    a {
-        color: var(--blue);
-        text-decoration: none;
-    }
-
-    a:hover {
-        text-decoration: underline;
-    }
-
-    a:visited {
-        color: var(--purple);
-    }
-
-    #nav {
-        background-color: var(--grey4);
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-    }
-
-    #nav a {
-        font-size: 28px;
-        padding: 12px 16px;
-        color: var(--white0);
-        display: block;
-    }
-
-    #nav .right {
-        display: flex;
-    }
-
-    #nav .right a {
-        font-size: 20px;
-        margin-top: 4px;
-    }
-
-    #main {
-        margin: 10px 20px;
-    }
-
-    #footer-links a {
-        display: block;
-    }
-
-    footer {
-        margin-top: 80px;
-        margin-left: 40px;
-    }
-
-
-    #spreadsheet-cells {
-        max-height: 800px;
-        overflow: auto;
-    }
-
-    #spreadsheet-cells div {
-        display: flex;
-    }
-
-    #spreadsheet-cells div div {
-        width: 40px;
-        max-width: 40px;
-        overflow: visible;
-        height: 20px;
-        background-color: var(--grey3);
-        border: 1px solid var(--grey4);
-    }
-
-    #spreadsheet-input {
-        border-radius: 0px;
-        margin: 0;
-        padding: 0px;
-        max-width: 60px;
-    }
-</style>
-<div id="nav">
-    <a id="home">Tao Lin</a>
-    <div class="right">
-        <a href="/about">About</a><a href="/blog">Blog</a> <a href="https://boiling-peak-00646.herokuapp.com/">Web
-            Dev
-            Demo</a><a>Settings</a>
-    </div>
-</div>
-<div id="main">
-    <h1>Tao Lin's Website</h1>
-    <p>I am interested in virtual reality, programming languages, functional programming, artificial
-        intelligence, AI existential risk, rationality, and effective altruism.</p>
-    <p>I program in Clojure, JavaScript, C#, and C++. I'm currently working on a VR tool for working
-        inside network graphs.</p>
-    <p>My favorite musician is <a href="https://open.spotify.com/artist/0xu4jAQQv7ZAqvFGdc9HgP?autoplay=true">Boy in
-            Space</a>, my
-        favorite shape is the <a href="https://en.wikipedia.org/wiki/Great_stellated_120-cell">Great Stellated
-            120 Cell</a>, my favorite video game is <a href="https://store.steampowered.com/app/617830/SUPERHOT_VR/">Superhot VR</a></p>
-    <p>This website is meant to test how performant a website can be if performance is truly the #1 priority</p>
-    <div id="spreadsheet">
-        <div id="spreadsheet-cells">
-
-        </div>
-    </div>
-</div>
-<footer>
-    <div id="footer-links">
-        <a href="https://twitter.com/taoroalin">twitter</a>
-        <a href="https://github.com/taoroalin">github</a><a href="mailto:taoroalin@gmail.com">email</a>
-        <a href="https://roamresearch.com/#/app/graphminer">personal notes</a>
-    </div>
-</footer>
-<script type="text/javascript"> // TODO minify-html isn't correctly minifying js
+<title>Tao Lin</title><style>:root{--grey0:black;--grey1:#1e1e1e;--grey2:#252526;--grey3:#333333;--grey4:#3c3c3c;--white0:white;--white1:#eeeeee;--white2:#d4d4d4;--white3:#cccccc;--white4:#858585;--blue:rgb(29, 56, 212);--purple:rgb(130, 21, 180)}body{background-color:var(--grey1);color:var(--white2);font-family:Verdana,Arial;margin:0}input{appearance:none;outline:0;border:none;box-shadow:none}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}a:visited{color:var(--purple)}#nav{background-color:var(--grey4);width:100%;display:flex;justify-content:space-between}#nav a{font-size:28px;padding:12px 16px;color:var(--white0);display:block}#nav .right{display:flex}#nav .right a{font-size:20px;margin-top:4px}#main{margin:10px 20px}#footer-links a{display:block}footer{margin-top:80px;margin-left:40px}#spreadsheet-cells{max-height:800px;overflow:auto}#spreadsheet-cells div{display:flex}#spreadsheet-cells div div{width:40px;max-width:40px;overflow:visible;height:20px;background-color:var(--grey3);border:1px solid var(--grey4)}#spreadsheet-input{border-radius:0;margin:0;padding:0;max-width:60px}</style><div id="nav"><a id="home">Tao Lin</a><div class="right"><a href="/about">About</a><a href="/blog">Blog</a> <a href="https://boiling-peak-00646.herokuapp.com/">Web Dev Demo</a><a>Settings</a></div></div><div id="main"><p>JK, there's just dark mode :)<h1>Tao Lin's Website</h1><p>I am interested in virtual reality, programming languages, functional programming, artificial intelligence, AI existential risk, rationality, and effective altruism.<p>I program in Clojure, JavaScript, C#, and C++. I'm currently working on a VR tool for working inside network graphs.<p>My favorite musician is <a href="https://open.spotify.com/artist/0xu4jAQQv7ZAqvFGdc9HgP?autoplay=true">Boy in Space</a>, my favorite shape is the <a href="https://en.wikipedia.org/wiki/Great_stellated_120-cell">Great Stellated 120 Cell</a>, my favorite video game is <a href="https://store.steampowered.com/app/617830/SUPERHOT_VR/">Superhot VR</a><p>This website is meant to test how performant a website can be if performance is truly the #1 priority<div id="spreadsheet"><div id="spreadsheet-cells"></div></div></div><footer><div id="footer-links"><a href="https://twitter.com/taoroalin">twitter</a> <a href="https://github.com/taoroalin">github</a><a href="mailto:taoroalin@gmail.com">email</a> <a href="https://roamresearch.com/#/app/graphminer">personal notes</a></div></footer><script>// TODO minify-html isn't correctly minifying js
     const timeFunc = (f, n, ...args) => {
         const stime = performance.now();
         f.apply({}, args);
         console.log(`Function ${n} took ${performance.now() - stime}`)
     }
+
+    const parseExpression = (raw) => {
+        const result = {};
+        for (let i = 0; i < raw.length; i++) {
+            const char = raw[i];
+
+        }
+        return result;
+    }
+
     const cols = 26, rows = 100;
     let focusedCell = null;
     let spreadsheet, input;
@@ -153,6 +25,7 @@
             for (let c = 0; c < cols; c++) {
                 const cell = document.createElement("div");
                 cell.col = c;
+                //cell.raw=undefined
                 row.appendChild(cell)
             }
             spreadsheet.appendChild(row);
@@ -208,31 +81,22 @@
 
         });
 
-        const pasteCSVManual = (raw) => {
-            let c0 = focusedCell.col, r = focusedCell.row, c = focusedCell.col; // row and col pasting data into
-            let cellStart = 0;
-            for (let i = 0; i < raw.length; i++) {
-                switch (raw[i]) {
-                    case ",":
-                        getCell(r, c).innerText = raw.substring(cellStart, i);
-                        cellStart = i + 1;
-                        c += 1;
-                        break;
-                    case "\n":
-                        getCell(r, c).innerText = raw.substring(cellStart, i);
-                        cellStart[i] += 1;
-                        r += 1;
-                        c = c0;
+        const pasteCSV = (raw) => {
+            const rowsText = raw.split("\n");
+            const r0 = focusedCell.row, c0 = focusedCell.col;
+            const rowDivs = spreadsheet.children;
+            for (let r = 0; r < rowsText.length && r0 + r < rows; r++) {
+                const colDivs = rowDivs[r0 + r].children;
+                const colsText = rowsText[r].split(",");
+                for (let c = 0; c < colsText.length && c0 + c < cols; c++) {
+                    colDivs[c0 + c].innerText = colsText[c];
                 }
-            }
-            if (i < raw.length - 1) {
-                getCell(r, c).innerText = raw.substring(cellStart, i + 1);
             }
         }
 
         input.addEventListener('paste', (event) => { // paste csv into cells
             event.preventDefault();
-            timeFunc(pasteCSVManual, "pasteCSVManual", event.clipboardData.getData("text"))
+            timeFunc(pasteCSV, "pasteCSV", event.clipboardData.getData("text"))
         });
     }
     const getCell = (r, c) => spreadsheet.children[r].children[c];
@@ -240,8 +104,11 @@
     const focusCell = (row, col) => {
         focusedCell = { row, col }
         getCell(row, col).appendChild(input);
-        setTimeout(() => input.focus(), 0);
+        setTimeout(() => input.focus(), 0); // todo make this faster
     }
 
     timeFunc(initSheet, "initSheet");
-</script><script>undefined</script>
+
+    // hot reloading for development :)
+    window.addEventListener('focus', () => location.reload());
+    // look at how much simpler this is than express server!!!!</script>
