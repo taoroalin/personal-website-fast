@@ -362,7 +362,7 @@
 <script>
     const renderers = {
         "page-link": (nodeData, children) => {
-            const node = document.getElementById("page-link-template").content.cloneNode(true);
+            const node = document.getElementById("page-link-template").content.firstElementChild.cloneNode(true);
             const slot = node.querySelector(".slot");
             if (slot !== undefined) {
                 children.forEach(element => slot.appendChild(element));
@@ -370,7 +370,7 @@
             return node;
         },
         "text": (nodeData, children) => {
-            const node = document.getElementById("text-template").content.cloneNode(true);
+            const node = document.getElementById("text-template").content.firstElementChild.cloneNode(true);
             const slot = node.querySelector(".slot");
             if (slot !== undefined) {
                 children.forEach(element => slot.appendChild(element));
@@ -378,7 +378,7 @@
             return node;
         },
         "bold": (nodeData, children) => {
-            const node = document.getElementById("bold-template").content.cloneNode(true);
+            const node = document.getElementById("bold-template").content.firstElementChild.cloneNode(true);
             const slot = node.querySelector(".slot");
             slot.style.color = "pink";
             if (slot !== undefined) {
