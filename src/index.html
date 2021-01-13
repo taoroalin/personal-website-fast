@@ -345,7 +345,7 @@
 
 
     // hot reloading for development :)
-    window.addEventListener('focus', () => location.reload());
+    //window.addEventListener('focus', () => location.reload());
     // look at how much simpler this is than express server!!!!
 </script>
 
@@ -360,31 +360,39 @@
 </template>
 
 <script>
+    const renderer = (nodeData, children) => {
+        const node = document.getElementById("page-link-template").content.cloneNode(true);
+        const slot = node.querySelector(".slot");
+        if (slot !== undefined) {
+            children.forEach(element => slot.appendChild(element));
+        }
+        return node.firstElementChild;
+    }
     const renderers = {
         "page-link": (nodeData, children) => {
-            const node = document.getElementById("page-link-template").content.firstElementChild.cloneNode(true);
+            const node = document.getElementById("page-link-template").content.cloneNode(true);
             const slot = node.querySelector(".slot");
             if (slot !== undefined) {
                 children.forEach(element => slot.appendChild(element));
             }
-            return node;
+            return node.firstElementChild;
         },
         "text": (nodeData, children) => {
-            const node = document.getElementById("text-template").content.firstElementChild.cloneNode(true);
+            const node = document.getElementById("text-template").content.cloneNode(true);
             const slot = node.querySelector(".slot");
             if (slot !== undefined) {
                 children.forEach(element => slot.appendChild(element));
             }
-            return node;
+            return node.firstElementChild;
         },
         "bold": (nodeData, children) => {
-            const node = document.getElementById("bold-template").content.firstElementChild.cloneNode(true);
+            const node = document.getElementById("bold-template").content.cloneNode(true);
             const slot = node.querySelector(".slot");
             slot.style.color = "pink";
             if (slot !== undefined) {
                 children.forEach(element => slot.appendChild(element));
             }
-            return node;
+            return node.firstElementChild;
         }
     }
     const treeToDom = (tree) => {
@@ -399,5 +407,145 @@
         document.getElementById("treeTest").appendChild(treeToDom(exampleTree));
     }
 
-    timeFunc(testTreeToDom, "tree to dom")
+    timeFunc(testTreeToDom, "tree to dom");
+
+
 </script>
+<template id="block-template">
+
+</template>
+<div class="rm-block-children rm-block__children rm-level-0">
+    <div data-page-links="[]" data-path-page-links="[]"
+        class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view">
+        <div class="rm-block-main rm-block__self">
+            <div class="controls rm-block__controls"><span class="block-expand"><span
+                        class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                    data-edit-email="taoroalin@gmail.com" data-create-time="1610567975988"
+                    data-edit-time="1610567980716" draggable="true" class="rm-bullet "><span
+                        class="bp3-popover-wrapper"><span class="bp3-popover-target"><span class="rm-bullet__inner"
+                                tabindex="0"></span></span></span></span></div>
+            <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-3zZga2SHV"
+                class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                tabindex="0"><span>Example</span></div>
+            <div class="rm-block-separator"></div>
+        </div>
+        <div class="rm-block-children rm-block__children rm-level-1">
+            <div data-page-links="[]" data-path-page-links="[]"
+                class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view block-border-left">
+                <div class="rm-block-main rm-block__self">
+                    <div class="controls rm-block__controls"><span class="block-expand"><span
+                                class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                            data-edit-email="taoroalin@gmail.com" data-create-time="1610567942442"
+                            data-edit-time="1610567952894" draggable="true" class="rm-bullet "><span
+                                class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                        class="rm-bullet__inner" tabindex="0"></span></span></span></span></div>
+                    <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-VzwwfTzX8"
+                        class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                        tabindex="0"><span>Block. Just a block.</span></div>
+                    <div class="rm-block-separator"></div><span class="bp3-popover-wrapper"><span
+                            class="bp3-popover-target"><button
+                                class="bp3-button bp3-small bp3-minimal block-ref-count-button"
+                                tabindex="0">1</button></span></span>
+                </div>
+                <div class="rm-block-children rm-block__children rm-level-2"></div>
+            </div>
+            <div data-page-links="[]" data-path-page-links="[]"
+                class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view block-border-left">
+                <div class="rm-block-main rm-block__self">
+                    <div class="controls rm-block__controls"><span class="block-expand"><span
+                                class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                            data-edit-email="taoroalin@gmail.com" data-create-time="1610567909556"
+                            data-edit-time="1610567909556" draggable="true" class="rm-bullet "><span
+                                class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                        class="rm-bullet__inner" tabindex="0"></span></span></span></span></div>
+                    <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-iHVYQARx5"
+                        class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                        tabindex="0"><span><span class="rm-bold"><span>bold</span></span> and <em
+                                class="rm-italics"><span>italic</span></em></span></div>
+                    <div class="rm-block-separator"></div>
+                </div>
+                <div class="rm-block-children rm-block__children rm-level-2">
+                    <div data-page-links="[]" data-path-page-links="[]"
+                        class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view block-border-left">
+                        <div class="rm-block-main rm-block__self">
+                            <div class="controls rm-block__controls"><span class="block-expand"><span
+                                        class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                                    data-edit-email="taoroalin@gmail.com" data-create-time="1610567917598"
+                                    data-edit-time="1610567917598" draggable="true" class="rm-bullet "><span
+                                        class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                                class="rm-bullet__inner" tabindex="0"></span></span></span></span></div>
+                            <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-_zlocTstw"
+                                class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                                tabindex="0"><span>child block</span></div>
+                            <div class="rm-block-separator"></div>
+                        </div>
+                        <div class="rm-block-children rm-block__children rm-level-3">
+                            <div data-page-links="[]" data-path-page-links="[]"
+                                class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view block-border-left">
+                                <div class="rm-block-main rm-block__self">
+                                    <div class="controls rm-block__controls"><span class="block-expand"><span
+                                                class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                                            data-edit-email="taoroalin@gmail.com" data-create-time="1610567921600"
+                                            data-edit-time="1610567921600" draggable="true" class="rm-bullet "><span
+                                                class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                                        class="rm-bullet__inner"
+                                                        tabindex="0"></span></span></span></span></div>
+                                    <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-hBkkyuUVw"
+                                        class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                                        tabindex="0"><span>layered child block</span></div>
+                                    <div class="rm-block-separator"></div>
+                                </div>
+                                <div class="rm-block-children rm-block__children rm-level-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div data-page-links="[&quot;Link&quot;]" data-path-page-links="[]"
+                class="roam-block-container rm-block rm-block--open rm-not-focused block-bullet-view block-border-left">
+                <div class="rm-block-main rm-block__self">
+                    <div class="controls rm-block__controls"><span class="block-expand"><span
+                                class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                            data-edit-email="taoroalin@gmail.com" data-create-time="1610567877134"
+                            data-edit-time="1610567958730" draggable="true" class="rm-bullet "><span
+                                class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                        class="rm-bullet__inner" tabindex="0"></span></span></span></span></div>
+                    <div id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-2_nXMSmdx"
+                        class="rm-block__input rm-block__input--view roam-block dont-unfocus-block hoverparent rm-block-text"
+                        tabindex="0"><span><span data-link-title="Link" data-link-uid="_SbHm8B4g"><span
+                                    class="rm-page-ref__brackets">[[</span><span tabindex="-1"
+                                    class="rm-page-ref rm-page-ref--link">Link</span><span
+                                    class="rm-page-ref__brackets">]]</span></span> and <span
+                                class="bp3-popover-wrapper"><span class="bp3-popover-target"><span
+                                        class="rm-block-ref dont-focus-block"><span>Block. Just a
+                                            block.</span></span></span></span></span></div>
+                    <div class="rm-block-separator"></div>
+                </div>
+                <div class="rm-block-children rm-block__children rm-level-2"></div>
+            </div>
+        </div>
+    </div>
+    <div data-page-links="[]" data-path-page-links="[]"
+        class="roam-block-container rm-block rm-block--open rm-focused block-bullet-view">
+        <div class="rm-block-main rm-block__self">
+            <div class="controls rm-block__controls"><span class="block-expand"><span
+                        class="bp3-icon-standard bp3-icon-caret-down rm-caret rm-caret-open rm-caret-hidden"></span></span><span
+                    data-edit-email="taoroalin@gmail.com" data-create-time="1610568681142"
+                    data-edit-time="1610568681142" draggable="true" class="rm-bullet "><span
+                        class="bp3-popover-wrapper"><span class="bp3-popover-target"><span class="rm-bullet__inner"
+                                tabindex="0"></span></span></span></span></div>
+            <div class="rm-autocomplete__wrapper" style="flex: 1 1 100%; position: relative;"><textarea
+                    autocapitalize="none" rows="1"
+                    id="block-input-DRFLjAAyWmePdBYNYD6ZDxbSfDm1-body-outline-73kAvOUWq-v8rfj4AtA"
+                    class="rm-block-input dont-unfocus-block rm-block__input rm-block__input--active rm-block-text"
+                    style="overflow: hidden; overflow-wrap: break-word; height: 31px;"></textarea></div>
+            <div class="rm-block-separator"></div>
+        </div>
+        <div class="rm-block-children rm-block__children rm-level-1"></div>
+    </div>
+</div>
+<!--
+    Problems with Roam html output:
+    Setting edit email, create time, edit time, are good for roam extensions, but bad for performance
+
+-->
