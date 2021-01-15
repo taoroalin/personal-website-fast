@@ -1,0 +1,124 @@
+<body>
+    <canvas id="graph-canvas" width="800" height="800">
+
+    </canvas>
+    <script type="text/javascript">
+        const timeFunc = (f, n, ...args) => {
+            const stime = performance.now();
+            f.apply({}, args);
+            console.log(`Function ${n} took ${performance.now() - stime}`)
+        }
+
+        const numNodes = 1500;
+        const numEdges = 1500;
+        class Node {
+            constructor(inX, inY) {
+                this.x = inX;
+                this.y = inY;
+                this.oldX = inX;
+                this.oldY = inY;
+                this.dx = 0;
+                this.dy = 0;
+            }
+        }
+        let nodes = [];
+        let edges = []
+        const initGraph = () => {
+            for (let i = 0; i < numNodes; i++) {
+                nodes.push(new Node(Math.random(), Math.random()));
+            }
+            for (let i = 0; i < numEdges; i++) {
+                const head = nodes[Math.floor(Math.random() * numNodes)];
+                const tail = nodes[Math.floor(Math.random() * numNodes)];
+                edges.push([head, tail]);
+            }
+        }
+        timeFunc(initGraph, "init graph");
+
+        const twoPI = 2 * Math.PI;
+
+        const repulsion = 0.000001;
+        const attraction = 0.01;
+        const centering = 0.007;
+        const friction = 0.5
+        const epsilon = 0.0001;
+        const connectedCentering = 0.007;//center by this much for each edge the node has
+        const move = () => {
+            edges.forEach(([a, b]) => {
+                const accX = (a.x - b.x) * attraction;
+                const accY = (a.y - b.y) * attraction;
+                a.dx -= accX;
+                b.dx += accX;
+                a.dy -= accY;
+                b.dy += accY;
+                a.dx -= (a.x - 0.5) * connectedCentering;
+                a.dy -= (a.y - 0.5) * connectedCentering;
+                b.dx -= (b.x - 0.5) * connectedCentering;
+                b.dy -= (b.y - 0.5) * connectedCentering;
+            })
+            nodes.forEach((a) => {
+                a.dx -= (a.x - 0.5) * centering;
+                a.dy -= (a.y - 0.5) * centering;
+                nodes.forEach((b) => {
+                    if (a !== b) {
+                        const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
+                        const accX = (a.x - b.x) * repulsion / distSquared;
+                        const accY = (a.y - b.y) * repulsion / distSquared;
+                        a.dx += accX;
+                        b.dx -= accX;
+                        a.dy += accY;
+                        b.dy -= accY;
+                    }
+                });
+                a.x += a.dx;
+                a.y += a.dy;
+                a.dx *= friction;
+                a.dy *= friction;
+            })
+        }
+
+        const canvas = document.getElementById("graph-canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.scale(canvas.width, canvas.height);
+
+
+        const render = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "red";
+            ctx.lineWidth = 0.001;
+            edges.forEach(([node, endNode]) => {
+                ctx.beginPath();
+                ctx.moveTo(node.x, node.y);
+                ctx.lineTo(endNode.x, endNode.y);
+                ctx.stroke();
+            })
+            ctx.fillStyle = "green";
+            nodes.forEach((node) => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 0.01, 0, twoPI, false);
+                ctx.fill();
+            })
+        }
+
+        const update = (timestamp) => {
+            //timeFunc(move, "move")
+            timeFunc(render, "render")
+            requestAnimationFrame(update);
+        }
+
+        /**
+         * How to update:
+         * requestAnimationFrame: just do everything in one frame!
+         * setInterval: just hope it matches up!
+         * continuous async:uses all the time
+         */
+
+        window.requestAnimationFrame(update);
+        const asyncChainMove = () => {
+            console.log("moving");
+            move();
+            setTimeout(asyncChainMove, 0);
+        }
+        asyncChainMove();
+    </script>
+</body>
