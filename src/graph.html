@@ -3,10 +3,21 @@
 
     </canvas>
     <script type="text/javascript">
-        const timeFunc = (f, n, ...args) => {
-            const stime = performance.now();
-            f.apply({}, args);
-            console.log(`Function ${n} took ${performance.now() - stime}`)
+        const timeFunc = (f, n) => {
+            let timesCalled = 0;
+            const timeStats = { avg: null }
+            return [(...args) => {
+                const stime = performance.now();
+                f.apply({}, args);
+                const duration = performance.now() - stime;
+                if (timeStats.avg == 0) {
+                    timeStats.avg = duration;
+                } else {
+                    timeStats.avg = (timeStats.avg * timesCalled + duration) / (timesCalled + 1);
+                    timesCalled += 1;
+                }
+                console.log(`Function ${n} took ${duration} avg ${timeStats.avg}`)
+            }, timeStats];
         }
 
         const numNodes = 1500;
@@ -23,7 +34,7 @@
         }
         let nodes = [];
         let edges = []
-        const initGraph = () => {
+        const [initGraph, initGraphTimeStats] = timeFunc(() => {
             for (let i = 0; i < numNodes; i++) {
                 nodes.push(new Node(Math.random(), Math.random()));
             }
@@ -32,8 +43,8 @@
                 const tail = nodes[Math.floor(Math.random() * numNodes)];
                 edges.push([head, tail]);
             }
-        }
-        timeFunc(initGraph, "init graph");
+        }, "initGraph")
+        initGraph();
 
         const twoPI = 2 * Math.PI;
 
@@ -43,20 +54,10 @@
         const friction = 0.5
         const epsilon = 0.0001;
         const connectedCentering = 0.007;//center by this much for each edge the node has
-        const move = () => {
-            edges.forEach(([a, b]) => {
-                const accX = (a.x - b.x) * attraction;
-                const accY = (a.y - b.y) * attraction;
-                a.dx -= accX;
-                b.dx += accX;
-                a.dy -= accY;
-                b.dy += accY;
-                a.dx -= (a.x - 0.5) * connectedCentering;
-                a.dy -= (a.y - 0.5) * connectedCentering;
-                b.dx -= (b.x - 0.5) * connectedCentering;
-                b.dy -= (b.y - 0.5) * connectedCentering;
-            })
+        const [move, moveTimeStats] = timeFunc(() => {
             nodes.forEach((a) => {
+                a.oldX = a.x;
+                a.oldY = a.y;
                 a.dx -= (a.x - 0.5) * centering;
                 a.dy -= (a.y - 0.5) * centering;
                 nodes.forEach((b) => {
@@ -74,48 +75,66 @@
                 a.y += a.dy;
                 a.dx *= friction;
                 a.dy *= friction;
-            })
-        }
+            });
+            edges.forEach(([a, b]) => {
+                const accX = (a.x - b.x) * attraction;
+                const accY = (a.y - b.y) * attraction;
+                a.dx -= accX;
+                b.dx += accX;
+                a.dy -= accY;
+                b.dy += accY;
+                a.dx -= (a.x - 0.5) * connectedCentering;
+                a.dy -= (a.y - 0.5) * connectedCentering;
+                b.dx -= (b.x - 0.5) * connectedCentering;
+                b.dy -= (b.y - 0.5) * connectedCentering;
+            });
+        }, "move");
 
         const canvas = document.getElementById("graph-canvas");
         const ctx = canvas.getContext("2d");
         ctx.scale(canvas.width, canvas.height);
 
-
-        const render = () => {
+        const interpolatedNodeX = (node, interp) => node.oldX + (node.x - node.oldX) * interp;
+        const interpolatedNodeY = (node, interp) => node.oldY + (node.y - node.oldY) * interp;
+        const [render, renderTimeStats] = timeFunc(() => {
+            const interp = (performance.now() - lastMoveTime) / avgMoveTime;
+            //const interp = 0;
+            console.log(interp);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "red";
             ctx.lineWidth = 0.001;
             edges.forEach(([node, endNode]) => {
                 ctx.beginPath();
-                ctx.moveTo(node.x, node.y);
-                ctx.lineTo(endNode.x, endNode.y);
+                ctx.moveTo(interpolatedNodeX(node, interp), interpolatedNodeY(node, interp));
+                ctx.lineTo(interpolatedNodeX(endNode, interp), interpolatedNodeY(endNode, interp));
                 ctx.stroke();
             })
             ctx.fillStyle = "green";
             nodes.forEach((node) => {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, 0.01, 0, twoPI, false);
+                ctx.arc(interpolatedNodeX(node, interp), interpolatedNodeY(node, interp), 0.01, 0, twoPI, false);
                 ctx.fill();
             })
-        }
+        }, "render");
 
         const update = (timestamp) => {
-            //timeFunc(move, "move")
-            timeFunc(render, "render")
+            render();
             requestAnimationFrame(update);
         }
 
-        /**
-         * How to update:
-         * requestAnimationFrame: just do everything in one frame!
-         * setInterval: just hope it matches up!
-         * continuous async:uses all the time
-         */
-
+        let lastMoveTime = performance.now();
+        let timesMoved = 0;
+        let avgMoveTime = null;
         window.requestAnimationFrame(update);
         const asyncChainMove = () => {
-            console.log("moving");
+            const newMoveTime = performance.now();
+            const duration = newMoveTime - lastMoveTime;
+            if (avgMoveTime == 0) {
+                avgMoveTime = duration;
+            } else {
+                avgMoveTime = (avgMoveTime * timesMoved + duration) / (timesMoved + 1);
+                timesMoved += 1;
+            }
             move();
             setTimeout(asyncChainMove, 0);
         }
