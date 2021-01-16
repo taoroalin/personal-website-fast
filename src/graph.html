@@ -30,6 +30,8 @@
                 this.y = inY;
                 this.dx = 0;
                 this.dy = 0;
+                this.ax = 0; // acceleration for smoothing
+                this.ay = 0;
                 this.connected = false;
             }
         }
@@ -61,18 +63,20 @@
         const twoPI = 2 * Math.PI;
 
         const attraction = 0.2;
-        const centering = 0.00;
+        const centering = 0.001;
         const friction = 0.5
         const epsilon = 0.0001;
-        const repulsion = 0.0000005;
+        const repulsion = 0.0002;
         const numBucketPositions = 4;
-        const numBucketPositionMultiplier = 1 / numBucketPositions;
+        const repulsionSmoothing = 0.99;
+        const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
 
         const [bucket, bucketTimeStats] = timeFunc(() => {
             // clear buckets
-            const offset = (Math.random() - 0.5) / numBuckets;
             buckets.forEach(row => row.forEach(bucket => bucket.length = 0));
+            const offset = (Math.random() - 0.5) / numBuckets;
             nodes.forEach(node => {
+                // could switch to bit shifting, but wouldn't work with doubles
                 const x = Math.floor((node.x + offset) * numBuckets);
                 const y = Math.floor((node.y + offset) * numBuckets);
                 if (0 < x && x < numBuckets && 0 < y && y < numBuckets) {
@@ -81,12 +85,16 @@
             })
             buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
                 const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
-                const accX = (a.x - b.x) * repulsion / distSquared * numBucketPositionMultiplier;
-                const accY = (a.y - b.y) * repulsion / distSquared * numBucketPositionMultiplier;
-                a.dx += accX;
-                b.dx -= accX;
-                a.dy += accY;
-                b.dy -= accY;
+                const accX = (a.x - b.x) / distSquared * repulsionMultiplier;
+                const accY = (a.y - b.y) / distSquared * repulsionMultiplier;
+                a.ax = a.ax * repulsionSmoothing + accX;
+                b.ax = b.ax * repulsionSmoothing - accX;
+                a.ay = a.ay * repulsionSmoothing + accY;
+                b.ay = b.ay * repulsionSmoothing - accY;
+                // a.dx += accX;
+                // b.dx -= accX;
+                // a.dy += accY;
+                // b.dy -= accY;
             }))))
         }, "bucket");
 
@@ -103,6 +111,8 @@
             nodes.forEach((a, idx) => {
                 a.dx -= (a.x - 0.5) * centering;
                 a.dy -= (a.y - 0.5) * centering;
+                a.dx += a.ax;
+                a.dy += a.ay;
                 a.x += a.dx;
                 a.y += a.dy;
                 a.dx *= friction;
