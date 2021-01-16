@@ -21,8 +21,10 @@
             }, timeStats];
         }
 
-        let numNodes = 1500;
+        let numNodes = 2000;
         const numEdges = 3000;
+        const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
+        const buckets2Offset = 0.5 / numBuckets; // pulling this out so compiler can't recompute it
         class Node {
             constructor(inX, inY) {
                 this.x = inX;
@@ -33,7 +35,9 @@
             }
         }
         let nodes = [];
-        let edges = []
+        let edges = [];
+        let buckets;
+        let buckets2;
         const [initGraph, initGraphTimeStats] = timeFunc(() => {
             for (let i = 0; i < numNodes; i++) {
                 nodes.push(new Node(Math.random(), Math.random()));
@@ -49,19 +53,39 @@
             }
             nodes = nodes.filter((x) => x.connected);
             numNodes = nodes.length;
+            buckets = [...Array(numBuckets)].map(i => [...Array(numBuckets)].map(j => []))
+            buckets2 = [...Array(numBuckets - 1)].map(i => [...Array(numBuckets - 1)].map(j => []))
+            // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
+            console.log(buckets);
         }, "initGraph")
         initGraph();
 
         const twoPI = 2 * Math.PI;
 
-        const repulsion = 0.000001;
         const attraction = 0.2;
         const centering = 0.00;
         const friction = 0.5
         const epsilon = 0.0001;
+        const repulsion = 0.000001;
 
-        const repulsionSparsity = 1;
-        const sparseRepulsion = repulsion * repulsionSparsity;
+        const [bucket, bucketTimeStats] = timeFunc(() => {
+            // clear buckets
+            buckets.forEach(row => row.forEach(bucket => bucket.length = 0));
+            buckets2.forEach(row => row.forEach(bucket => bucket.length = 0));
+            nodes.forEach(node => {
+                const x = Math.floor(node.x * numBuckets);
+                const y = Math.floor(node.y * numBuckets);
+                if (0 < x && x < numBuckets && 0 < y && y < numBuckets) {
+                    buckets[x][y].push(node);
+                }
+                const x2 = Math.floor((node.x - buckets2Offset) * numBuckets);
+                const y2 = Math.floor((node.y - buckets2Offset) * numBuckets);
+                if (0 < x && x < numBuckets - 1 && 0 < y && y < numBuckets - 1) {
+                    buckets2[x][y].push(node);
+                }
+            })
+        }, "bucket");
+
         const [move, moveTimeStats] = timeFunc(() => {
             edges.forEach(([a, b]) => {
                 const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
@@ -72,31 +96,27 @@
                 a.dy -= accY;
                 b.dy += accY;
             });
+            buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
+                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                const accX = (a.x - b.x) * repulsion / distSquared;
+                const accY = (a.y - b.y) * repulsion / distSquared;
+                a.dx += accX;
+                b.dx -= accX;
+                a.dy += accY;
+                b.dy -= accY;
+            }))))
+            buckets2.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
+                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                const accX = (a.x - b.x) * repulsion / distSquared;
+                const accY = (a.y - b.y) * repulsion / distSquared;
+                a.dx += accX;
+                b.dx -= accX;
+                a.dy += accY;
+                b.dy -= accY;
+            }))))
             nodes.forEach((a, idx) => {
-                const sparsePhase = (moveTimeStats.timesCalled + idx) % repulsionSparsity;
                 a.dx -= (a.x - 0.5) * centering;
                 a.dy -= (a.y - 0.5) * centering;
-                for (let i = 0; i < numNodes / repulsionSparsity; i++) {
-                    const b = nodes[sparsePhase + i * repulsionSparsity];
-                    const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
-                    const accX = (a.x - b.x) * sparseRepulsion / distSquared;
-                    const accY = (a.y - b.y) * sparseRepulsion / distSquared;
-                    a.dx += accX;
-                    b.dx -= accX;
-                    a.dy += accY;
-                    b.dy -= accY;
-                }
-                // nodes.forEach((b) => {
-                //     if (a !== b) {
-                //         const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
-                //         const accX = (a.x - b.x) * repulsion / distSquared;
-                //         const accY = (a.y - b.y) * repulsion / distSquared;
-                //         a.dx += accX;
-                //         b.dx -= accX;
-                //         a.dy += accY;
-                //         b.dy -= accY;
-                //     }
-                // });
                 a.x += a.dx;
                 a.y += a.dy;
                 a.dx *= friction;
@@ -127,10 +147,17 @@
         }, "render");
 
         const update = (timestamp) => {
+            bucket();
             move();
             render();
             requestAnimationFrame(update);
         }
         window.requestAnimationFrame(update);
+    </script>
+    <script>
+        /**
+         * is this how octree colision optimization works?
+         */
+
     </script>
 </body>
