@@ -1,10 +1,17 @@
-<body>
-    <canvas id="graph-canvas" width="800" height="800">
+<body style="padding:0;margin:0;">
+    <canvas id="graph-canvas" width="936" height="969">
 
     </canvas>
     <script type="text/javascript">
+
+        /**
+         * Creates a version of a function that keeps track of avg and variance in runtime.
+         * Meant to be used like this: 
+         * const [func, funcTimeStats]=timeFunc(()=>{...}, "func")
+         * Optionally prints time stats every time func is called
+         */
         const timeFunc = (f, n, print = false) => {
-            const timeStats = { avg: null, timesCalled: 0 }
+            const timeStats = { avg: null, timesCalled: 0, std: 0, variance: 0 }
             return [(...args) => {
                 const stime = performance.now();
                 f.apply({}, args);
@@ -13,6 +20,9 @@
                     timeStats.avg = duration;
                 } else {
                     timeStats.avg = (timeStats.avg * timeStats.timesCalled + duration) / (timeStats.timesCalled + 1);
+                    const deviationNow = (timeStats.avg - duration) * (timeStats.avg - duration);
+                    timeStats.variance = (timeStats.variance * (timeStats.timesCalled) + deviationNow) / (timeStats.timesCalled + 1);
+                    timeStats.std = Math.sqrt(timeStats.variance);
                     timeStats.timesCalled += 1;
                 }
                 if (print) {
@@ -21,6 +31,7 @@
             }, timeStats];
         }
 
+        // testing paramameters
         let numNodes = 2000;
         const numEdges = 2000;
         const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
@@ -35,10 +46,22 @@
                 this.connected = false;
             }
         }
+
+        // Mutable state
         let nodes = [];
         let edges = [];
         let buckets;
         let buckets2;
+        const canvas = document.getElementById("graph-canvas");
+        const ctx = canvas.getContext("2d");
+        ctx.scale(canvas.width, canvas.height);
+        let mousePosition = { x: 0, y: 0 };
+        // this is set to a listener when mouse clicks, removed when mouse is released
+        let mouseMoveListener = (event) => {
+            ctx.translate((event.offsetX - mousePosition.x) / 936, (event.offsetY - mousePosition.y) / 969);
+            mousePosition = { x: event.offsetX, y: event.offsetY };
+        };
+
         const [initGraph, initGraphTimeStats] = timeFunc(() => {
             for (let i = 0; i < numNodes; i++) {
                 nodes.push(new Node(Math.random(), Math.random()));
@@ -56,20 +79,30 @@
             numNodes = nodes.length;
             buckets = [...Array(numBuckets)].map(i => [...Array(numBuckets)].map(j => []))
             // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
-            console.log(buckets);
+
+            canvas.addEventListener("mousedown", (event) => {
+                mousePosition = { x: event.offsetX, y: event.offsetY };
+                canvas.addEventListener("mousemove", mouseMoveListener)
+            })
+            canvas.addEventListener("mouseup", (event) => {
+                canvas.removeEventListener("mousemove", mouseMoveListener)
+            })
+            canvas.addEventListener("mouseleave", (event) => {
+                canvas.removeEventListener("mousemove", mouseMoveListener)
+            })
         }, "initGraph")
         initGraph();
 
         const twoPI = 2 * Math.PI;
-
         const attraction = 0.2;
-        const centering = 0.001;
+        const centering = 0.005;
         const friction = 0.5
         const epsilon = 0.0001;
         const repulsion = 0.0002;
         const numBucketPositions = 4;
         const repulsionSmoothing = 0.99;
         const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
+
 
         const [bucket, bucketTimeStats] = timeFunc(() => {
             // clear buckets
@@ -120,12 +153,11 @@
             });
         }, "move");
 
-        const canvas = document.getElementById("graph-canvas");
-        const ctx = canvas.getContext("2d");
-        ctx.scale(canvas.width, canvas.height);
-
         const [render, renderTimeStats] = timeFunc(() => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            ctx.translate(-5000, -5000);
+            ctx.clearRect(0, 0, 10000, 10000);
+            ctx.restore();
             ctx.fillStyle = "red";
             ctx.lineWidth = 0.002;
             edges.forEach(([node, endNode]) => {
