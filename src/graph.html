@@ -22,9 +22,8 @@
         }
 
         let numNodes = 2000;
-        const numEdges = 3000;
+        const numEdges = 2000;
         const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
-        const buckets2Offset = 0.5 / numBuckets; // pulling this out so compiler can't recompute it
         class Node {
             constructor(inX, inY) {
                 this.x = inX;
@@ -54,7 +53,6 @@
             nodes = nodes.filter((x) => x.connected);
             numNodes = nodes.length;
             buckets = [...Array(numBuckets)].map(i => [...Array(numBuckets)].map(j => []))
-            buckets2 = [...Array(numBuckets - 1)].map(i => [...Array(numBuckets - 1)].map(j => []))
             // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
             console.log(buckets);
         }, "initGraph")
@@ -66,24 +64,30 @@
         const centering = 0.00;
         const friction = 0.5
         const epsilon = 0.0001;
-        const repulsion = 0.000001;
+        const repulsion = 0.0000005;
+        const numBucketPositions = 4;
+        const numBucketPositionMultiplier = 1 / numBucketPositions;
 
         const [bucket, bucketTimeStats] = timeFunc(() => {
             // clear buckets
+            const offset = (Math.random() - 0.5) / numBuckets;
             buckets.forEach(row => row.forEach(bucket => bucket.length = 0));
-            buckets2.forEach(row => row.forEach(bucket => bucket.length = 0));
             nodes.forEach(node => {
-                const x = Math.floor(node.x * numBuckets);
-                const y = Math.floor(node.y * numBuckets);
+                const x = Math.floor((node.x + offset) * numBuckets);
+                const y = Math.floor((node.y + offset) * numBuckets);
                 if (0 < x && x < numBuckets && 0 < y && y < numBuckets) {
                     buckets[x][y].push(node);
                 }
-                const x2 = Math.floor((node.x - buckets2Offset) * numBuckets);
-                const y2 = Math.floor((node.y - buckets2Offset) * numBuckets);
-                if (0 < x && x < numBuckets - 1 && 0 < y && y < numBuckets - 1) {
-                    buckets2[x][y].push(node);
-                }
             })
+            buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
+                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                const accX = (a.x - b.x) * repulsion / distSquared * numBucketPositionMultiplier;
+                const accY = (a.y - b.y) * repulsion / distSquared * numBucketPositionMultiplier;
+                a.dx += accX;
+                b.dx -= accX;
+                a.dy += accY;
+                b.dy -= accY;
+            }))))
         }, "bucket");
 
         const [move, moveTimeStats] = timeFunc(() => {
@@ -96,24 +100,6 @@
                 a.dy -= accY;
                 b.dy += accY;
             });
-            buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
-                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
-                const accX = (a.x - b.x) * repulsion / distSquared;
-                const accY = (a.y - b.y) * repulsion / distSquared;
-                a.dx += accX;
-                b.dx -= accX;
-                a.dy += accY;
-                b.dy -= accY;
-            }))))
-            buckets2.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
-                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
-                const accX = (a.x - b.x) * repulsion / distSquared;
-                const accY = (a.y - b.y) * repulsion / distSquared;
-                a.dx += accX;
-                b.dx -= accX;
-                a.dy += accY;
-                b.dy -= accY;
-            }))))
             nodes.forEach((a, idx) => {
                 a.dx -= (a.x - 0.5) * centering;
                 a.dy -= (a.y - 0.5) * centering;
@@ -146,12 +132,14 @@
             })
         }, "render");
 
-        const update = (timestamp) => {
-            bucket();
+        const [update, updateTimeStats] = timeFunc((timestamp) => {
+            for (let i = 0; i < numBucketPositions; i++) {
+                bucket();
+            }
             move();
             render();
             requestAnimationFrame(update);
-        }
+        }, "update");
         window.requestAnimationFrame(update);
     </script>
     <script>
