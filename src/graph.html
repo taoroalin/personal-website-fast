@@ -3,7 +3,7 @@
 
     </canvas>
     <script type="text/javascript">
-        const timeFunc = (f, n) => {
+        const timeFunc = (f, n, print = false) => {
             const timeStats = { avg: null, timesCalled: 0 }
             return [(...args) => {
                 const stime = performance.now();
@@ -15,19 +15,21 @@
                     timeStats.avg = (timeStats.avg * timeStats.timesCalled + duration) / (timeStats.timesCalled + 1);
                     timeStats.timesCalled += 1;
                 }
-                //console.log(`Function ${n} took ${duration} avg ${timeStats.avg}`)
+                if (print) {
+                    console.log(`Function ${n} took ${duration} avg ${timeStats.avg}`)
+                }
             }, timeStats];
         }
 
-        const numNodes = 1500;
-        const numEdges = 1500;
+        let numNodes = 1500;
+        const numEdges = 3000;
         class Node {
             constructor(inX, inY) {
                 this.x = inX;
                 this.y = inY;
                 this.dx = 0;
                 this.dy = 0;
-                this.connected = 0;
+                this.connected = false;
             }
         }
         let nodes = [];
@@ -39,26 +41,30 @@
             for (let i = 0; i < numEdges; i++) {
                 const head = nodes[Math.floor(Math.random() * numNodes)];
                 const tail = nodes[Math.floor(Math.random() * numNodes)];
-                edges.push([head, tail]);
-                head.connected = 1;
-                tail.connected = 1;
+                if (head != tail) {
+                    edges.push([head, tail]);
+                    head.connected = true;
+                    tail.connected = true;
+                }
             }
+            nodes = nodes.filter((x) => x.connected);
+            numNodes = nodes.length;
         }, "initGraph")
         initGraph();
 
         const twoPI = 2 * Math.PI;
 
         const repulsion = 0.000001;
-        const attraction = 0.01;
-        const centering = 0.007;
+        const attraction = 0.2;
+        const centering = 0.00;
         const friction = 0.5
         const epsilon = 0.0001;
-        const connectedCentering = 0.007; //center by this much more if the node has edges
 
-        const repulsionSparsity = 5;
+        const repulsionSparsity = 1;
         const sparseRepulsion = repulsion * repulsionSparsity;
         const [move, moveTimeStats] = timeFunc(() => {
             edges.forEach(([a, b]) => {
+                const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
                 const accX = (a.x - b.x) * attraction;
                 const accY = (a.y - b.y) * attraction;
                 a.dx -= accX;
@@ -68,19 +74,17 @@
             });
             nodes.forEach((a, idx) => {
                 const sparsePhase = (moveTimeStats.timesCalled + idx) % repulsionSparsity;
-                a.dx -= (a.x - 0.5) * (centering + a.connected * connectedCentering);
-                a.dy -= (a.y - 0.5) * (centering + a.connected * connectedCentering);
-                for (let i = 0; i < numNodes / 5; i++) {
+                a.dx -= (a.x - 0.5) * centering;
+                a.dy -= (a.y - 0.5) * centering;
+                for (let i = 0; i < numNodes / repulsionSparsity; i++) {
                     const b = nodes[sparsePhase + i * repulsionSparsity];
-                    if (a !== b) {
-                        const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
-                        const accX = (a.x - b.x) * sparseRepulsion / distSquared;
-                        const accY = (a.y - b.y) * sparseRepulsion / distSquared;
-                        a.dx += accX;
-                        b.dx -= accX;
-                        a.dy += accY;
-                        b.dy -= accY;
-                    }
+                    const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                    const accX = (a.x - b.x) * sparseRepulsion / distSquared;
+                    const accY = (a.y - b.y) * sparseRepulsion / distSquared;
+                    a.dx += accX;
+                    b.dx -= accX;
+                    a.dy += accY;
+                    b.dy -= accY;
                 }
                 // nodes.forEach((b) => {
                 //     if (a !== b) {
@@ -107,7 +111,7 @@
         const [render, renderTimeStats] = timeFunc(() => {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "red";
-            ctx.lineWidth = 0.001;
+            ctx.lineWidth = 0.002;
             edges.forEach(([node, endNode]) => {
                 ctx.beginPath();
                 ctx.moveTo(node.x, node.y);
@@ -117,7 +121,7 @@
             ctx.fillStyle = "green";
             nodes.forEach((node) => {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, 0.01, 0, twoPI, false);
+                ctx.arc(node.x, node.y, 0.007, 0, twoPI, false);
                 ctx.fill();
             })
         }, "render");
@@ -127,23 +131,6 @@
             render();
             requestAnimationFrame(update);
         }
-
-        let lastMoveTime = performance.now();
-        let timesMoved = 0;
-        let avgMoveTime = null;
         window.requestAnimationFrame(update);
-        const asyncChainMove = () => {
-            const newMoveTime = performance.now();
-            const duration = newMoveTime - lastMoveTime;
-            if (avgMoveTime == 0) {
-                avgMoveTime = duration;
-            } else {
-                avgMoveTime = (avgMoveTime * timesMoved + duration) / (timesMoved + 1);
-                timesMoved += 1;
-            }
-            move();
-            setTimeout(asyncChainMove, 0);
-        }
-        //asyncChainMove();
     </script>
 </body>
