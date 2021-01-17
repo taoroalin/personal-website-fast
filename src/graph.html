@@ -162,6 +162,77 @@
 
         const proj = 4;
 
+        const projectMouse = () => {
+            const numPositions = mousePosition.length;
+            const positions = mousePosition;
+            const predictedPosition = {};
+            if (numPositions == 1) {
+                return (positions[0]);
+
+            } else if (numPositions == 2) {
+
+                let deltaX = positions[1].x - positions[0].x;
+                let deltaY = positions[1].y - positions[0].y;
+
+                predictedPosition.x = positions[1].x + deltaX;
+                predictedPosition.y = positions[1].y + deltaY;
+
+            } else if (numPositions == 3) {
+
+                let sumOfXChanges = ((positions[2].x - positions[1].x) * 2) +
+                    ((positions[1].x - positions[0].x) * 1);
+
+                let deltaX = sumOfXChanges / 3.0;
+
+                let sumOfYChanges = ((positions[2].y - positions[1].y) * 2) +
+                    ((positions[1].y - positions[0].y) * 1);
+
+                let deltaY = sumOfYChanges / 3.0;
+
+                predictedPosition.x = positions[positions.length - 1].x + deltaX;
+                predictedPosition.y = positions[positions.length - 1].y + deltaY;
+
+            } else if (numPositions == 4) {
+
+                let sumOfXChanges = ((positions[3].x - positions[2].x) * 3) +
+                    ((positions[2].x - positions[1].x) * 2) +
+                    ((positions[1].x - positions[0].x) * 1);
+
+                let deltaX = sumOfXChanges / 6.0;
+
+                let sumOfYChanges = ((positions[3].y - positions[2].y) * 3) +
+                    ((positions[2].y - positions[1].y) * 2) +
+                    ((positions[1].y - positions[0].y) * 1);
+
+                let deltaY = sumOfYChanges / 6.0;
+
+                predictedPosition.x = positions[positions.length - 1].x + deltaX;
+                predictedPosition.y = positions[positions.length - 1].y + deltaY;
+
+            } else if (numPositions >= 5) {
+
+                let sumOfXChanges = ((positions[numPositions - 1].x - positions[numPositions - 2].x) * 4) +
+                    ((positions[numPositions - 2].x - positions[numPositions - 3].x) * 3) +
+                    ((positions[numPositions - 3].x - positions[numPositions - 4].x) * 2) +
+                    ((positions[numPositions - 4].x - positions[numPositions - 5].x) * 1);
+
+                let deltaX = sumOfXChanges / 10.0;
+
+                let sumOfYChanges = ((positions[numPositions - 1].y - positions[numPositions - 2].y) * 4) +
+                    ((positions[numPositions - 2].y - positions[numPositions - 3].y) * 3) +
+                    ((positions[numPositions - 3].y - positions[numPositions - 4].y) * 2) +
+                    ((positions[numPositions - 4].y - positions[numPositions - 5].y) * 1);
+
+                let deltaY = sumOfYChanges / 10.0;
+
+                predictedPosition.x = positions[positions.length - 1].x + deltaX;
+                predictedPosition.y = positions[positions.length - 1].y + deltaY;
+
+            }
+            console.log(predictedPosition);
+            return predictedPosition;
+        }
+
         const [render, renderTimeStats] = timeFunc(() => {
             // clear canvas in positive and negative directions
             ctx.save();
@@ -173,16 +244,13 @@
             const lastIdx = mousePosition.length - 1;
             const cur = mousePosition[lastIdx];
             const prev = mousePosition[lastIdx - 1];
-            const pprev = mousePosition[lastIdx - 2];
-            if (cur && prev && pprev) {
-
+            if (cur && prev) {
                 canvasPosition.x += (cur.x - prev.x);
                 canvasPosition.y += (cur.y - prev.y);
-                if (cur.x == prev.x && cur.y == prev.y) {
-                    ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
-                } else {
-                    ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (cur.x - prev.x - (prev.x - pprev.x)) + (cur.x - prev.x) * proj, canvasPosition.y + (cur.y - prev.y - (prev.y - pprev.y)) + (cur.y - prev.y) * proj);
-                }
+
+                const proj = projectMouse();
+                //ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
+                ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (proj.x - cur.x) * 1.5, canvasPosition.y + (proj.y - cur.y) * 1.5);
             }
             mousePosition.push(mousePosition[mousePosition.length - 1]);
             // draw lines first so they go underneath nodes
