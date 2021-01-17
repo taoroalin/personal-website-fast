@@ -32,8 +32,8 @@
         }
 
         // testing paramameters
-        let numNodes = 2000;
-        const numEdges = 2000;
+        let numNodes = 20;
+        const numEdges = 20;
         const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
         class Node {
             constructor(inX, inY) {
@@ -54,14 +54,13 @@
         const canvas = document.getElementById("graph-canvas");
         const ctx = canvas.getContext("2d");
         ctx.scale(canvas.width, canvas.height);
-        let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
+        let mousePosition = [];
         let canvasPosition = { x: 0, y: 0 };
         let updating = true;
 
         // this is set to a listener when mouse clicks, removed when mouse is released
         let [mouseMoveListener, mouseMoveListenerTimeStats] = timeFunc((event) => {
-            mousePosition.x = event.offsetX;
-            mousePosition.y = event.offsetY;
+            mousePosition[mousePosition.length - 1] = { x: event.offsetX, y: event.offsetY };
             // mousemove event isn't very fast. Could extrapolate future position to make it feel more responsive
         });
 
@@ -84,7 +83,7 @@
             // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
 
             canvas.addEventListener("mousedown", (event) => {
-                mousePosition = { x: event.offsetX, y: event.offsetY, prevX: event.offsetX, prevY: event.offsetY };
+                mousePosition = [{ x: event.offsetX, y: event.offsetY }];
                 canvas.addEventListener("mousemove", mouseMoveListener)
             })
             canvas.addEventListener("mouseup", (event) => {
@@ -111,8 +110,6 @@
         const numBucketPositions = 3;
         const repulsionSmoothing = 0.99;
         const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
-
-        const proj = 0.5;
 
         const [bucket, bucketTimeStats] = timeFunc(() => {
             // clear buckets
@@ -163,23 +160,31 @@
             });
         }, "move");
 
+        const proj = 4;
+
         const [render, renderTimeStats] = timeFunc(() => {
             // clear canvas in positive and negative directions
             ctx.save();
             ctx.translate(-5000, -5000);
             ctx.clearRect(0, 0, 10000, 10000);
             ctx.restore();
-
             // ctx.translate((mousePosition.x - mousePosition.prevX) / 936, (mousePosition.y - mousePosition.prevY) / 969);
-            canvasPosition.x += (mousePosition.x - mousePosition.prevX);
-            canvasPosition.y += (mousePosition.y - mousePosition.prevY);
-            if (mousePosition.x == mousePosition.prevX && mousePosition.y == mousePosition.prevY) {
-                ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
-            } else {
-                ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (mousePosition.x - mousePosition.prevX) * proj, canvasPosition.y + (mousePosition.y - mousePosition.prevY) * proj);
+
+            const lastIdx = mousePosition.length - 1;
+            const cur = mousePosition[lastIdx];
+            const prev = mousePosition[lastIdx - 1];
+            const pprev = mousePosition[lastIdx - 2];
+            if (cur && prev && pprev) {
+
+                canvasPosition.x += (cur.x - prev.x);
+                canvasPosition.y += (cur.y - prev.y);
+                if (cur.x == prev.x && cur.y == prev.y) {
+                    ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
+                } else {
+                    ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (cur.x - prev.x - (prev.x - pprev.x)) + (cur.x - prev.x) * proj, canvasPosition.y + (cur.y - prev.y - (prev.y - pprev.y)) + (cur.y - prev.y) * proj);
+                }
             }
-            mousePosition.prevX = mousePosition.x;
-            mousePosition.prevY = mousePosition.y;
+            mousePosition.push(mousePosition[mousePosition.length - 1]);
             // draw lines first so they go underneath nodes
             ctx.fillStyle = "red";
             ctx.lineWidth = 0.002;
