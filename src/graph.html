@@ -32,9 +32,8 @@
         }
 
         // testing paramameters
-        let numNodes = 20;
-        const numEdges = 20;
-        const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
+        let numNodes = 2000;
+        const numEdges = 2000;
         class Node {
             constructor(inX, inY) {
                 this.x = inX;
@@ -50,7 +49,6 @@
         // Mutable state
         let nodes = [];
         let edges = [];
-        let buckets;
         const canvas = document.getElementById("graph-canvas");
         const ctx = canvas.getContext("2d");
         ctx.scale(canvas.width, canvas.height);
@@ -79,8 +77,6 @@
             }
             nodes = nodes.filter((x) => x.connected);
             numNodes = nodes.length;
-            buckets = [...Array(numBuckets)].map(i => [...Array(numBuckets)].map(j => []))
-            // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
 
             canvas.addEventListener("mousedown", (event) => {
                 mousePosition = [{ x: event.offsetX, y: event.offsetY }];
@@ -106,37 +102,7 @@
         const centering = 0.005;
         const friction = 0.5
         const epsilon = 0.0001;
-        const repulsion = 0.0002;
-        const numBucketPositions = 3;
-        const repulsionSmoothing = 0.99;
-        const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
-
-        const [bucket, bucketTimeStats] = timeFunc(() => {
-            // clear buckets
-            buckets.forEach(row => row.forEach(bucket => bucket.length = 0));
-            const offset = (Math.random() - 0.5) / numBuckets;
-            nodes.forEach(node => {
-                // could switch to bit shifting, but wouldn't work with doubles
-                const x = Math.floor((node.x + offset) * numBuckets);
-                const y = Math.floor((node.y + offset) * numBuckets);
-                if (0 < x && x < numBuckets && 0 < y && y < numBuckets) {
-                    buckets[x][y].push(node);
-                }
-            })
-            buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
-                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
-                const accX = (a.x - b.x) / distSquared * repulsionMultiplier;
-                const accY = (a.y - b.y) / distSquared * repulsionMultiplier;
-                a.ax = a.ax * repulsionSmoothing + accX;
-                b.ax = b.ax * repulsionSmoothing - accX;
-                a.ay = a.ay * repulsionSmoothing + accY;
-                b.ay = b.ay * repulsionSmoothing - accY;
-                // a.dx += accX;
-                // b.dx -= accX;
-                // a.dy += accY;
-                // b.dy -= accY;
-            }))))
-        }, "bucket");
+        const repulsion = 0.0000005;
 
         const [move, moveTimeStats] = timeFunc(() => {
             edges.forEach(([a, b]) => {
@@ -148,6 +114,15 @@
                 a.dy -= accY;
                 b.dy += accY;
             });
+            nodes.forEach(a => nodes.forEach(b => {
+                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                const accX = (a.x - b.x) / distSquared * repulsion;
+                const accY = (a.y - b.y) / distSquared * repulsion;
+                a.dx += accX;
+                b.dx -= accX;
+                a.dy += accY;
+                b.dy -= accY;
+            }));
             nodes.forEach((a) => {
                 a.dx -= (a.x - 0.5) * centering;
                 a.dy -= (a.y - 0.5) * centering;
@@ -161,76 +136,6 @@
         }, "move");
 
         const proj = 4;
-
-        const projectMouse = () => {
-            const numPositions = mousePosition.length;
-            const positions = mousePosition;
-            const predictedPosition = {};
-            if (numPositions == 1) {
-                return (positions[0]);
-
-            } else if (numPositions == 2) {
-
-                let deltaX = positions[1].x - positions[0].x;
-                let deltaY = positions[1].y - positions[0].y;
-
-                predictedPosition.x = positions[1].x + deltaX;
-                predictedPosition.y = positions[1].y + deltaY;
-
-            } else if (numPositions == 3) {
-
-                let sumOfXChanges = ((positions[2].x - positions[1].x) * 2) +
-                    ((positions[1].x - positions[0].x) * 1);
-
-                let deltaX = sumOfXChanges / 3.0;
-
-                let sumOfYChanges = ((positions[2].y - positions[1].y) * 2) +
-                    ((positions[1].y - positions[0].y) * 1);
-
-                let deltaY = sumOfYChanges / 3.0;
-
-                predictedPosition.x = positions[positions.length - 1].x + deltaX;
-                predictedPosition.y = positions[positions.length - 1].y + deltaY;
-
-            } else if (numPositions == 4) {
-
-                let sumOfXChanges = ((positions[3].x - positions[2].x) * 3) +
-                    ((positions[2].x - positions[1].x) * 2) +
-                    ((positions[1].x - positions[0].x) * 1);
-
-                let deltaX = sumOfXChanges / 6.0;
-
-                let sumOfYChanges = ((positions[3].y - positions[2].y) * 3) +
-                    ((positions[2].y - positions[1].y) * 2) +
-                    ((positions[1].y - positions[0].y) * 1);
-
-                let deltaY = sumOfYChanges / 6.0;
-
-                predictedPosition.x = positions[positions.length - 1].x + deltaX;
-                predictedPosition.y = positions[positions.length - 1].y + deltaY;
-
-            } else if (numPositions >= 5) {
-
-                let sumOfXChanges = ((positions[numPositions - 1].x - positions[numPositions - 2].x) * 4) +
-                    ((positions[numPositions - 2].x - positions[numPositions - 3].x) * 3) +
-                    ((positions[numPositions - 3].x - positions[numPositions - 4].x) * 2) +
-                    ((positions[numPositions - 4].x - positions[numPositions - 5].x) * 1);
-
-                let deltaX = sumOfXChanges / 10.0;
-
-                let sumOfYChanges = ((positions[numPositions - 1].y - positions[numPositions - 2].y) * 4) +
-                    ((positions[numPositions - 2].y - positions[numPositions - 3].y) * 3) +
-                    ((positions[numPositions - 3].y - positions[numPositions - 4].y) * 2) +
-                    ((positions[numPositions - 4].y - positions[numPositions - 5].y) * 1);
-
-                let deltaY = sumOfYChanges / 10.0;
-
-                predictedPosition.x = positions[positions.length - 1].x + deltaX;
-                predictedPosition.y = positions[positions.length - 1].y + deltaY;
-
-            }
-            return predictedPosition;
-        }
 
         const [render, renderTimeStats] = timeFunc(() => {
             // clear canvas in positive and negative directions
@@ -246,10 +151,7 @@
             if (cur && prev) {
                 canvasPosition.x += (cur.x - prev.x);
                 canvasPosition.y += (cur.y - prev.y);
-
-                const proj = projectMouse();
-                //ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
-                ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (proj.x - cur.x) * 1.5, canvasPosition.y + (proj.y - cur.y) * 1.5);
+                ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
             }
             mousePosition.push(mousePosition[mousePosition.length - 1]);
 
@@ -274,41 +176,11 @@
 
         const [update, updateTimeStats] = timeFunc((timestamp) => {
             if (updating) {
-                for (let i = 0; i < numBucketPositions; i++) {
-                    bucket();
-                }
                 move();
             }
             render();
             requestAnimationFrame(update);
         }, "update");
         window.requestAnimationFrame(update);
-    </script>
-
-    <script>
-        const unionFindByEdges = (edges, numNodes) => {
-            const result = [...Array(numNodes).keys()];
-            const find = (x) => {
-                if (result[x] === undefined) {
-                    result[x] = x;
-                }
-                if (x !== result[x]) {
-                    result[x] = find(result[x]);
-                }
-                return result[x];
-            }
-            const union = (a, b) => {
-                result[find(a)] = find(b);
-            }
-            edges.forEach(([a, b]) => union(a, b));
-            return result;
-        }
-        console.log(unionFindByEdges([[1, 2], [3, 4]]))
-    </script>
-    <script>
-        /**
-         * is this how octree colision optimization works?
-         */
-
     </script>
 </body>
