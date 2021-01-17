@@ -1,5 +1,5 @@
 <body style="padding:0;margin:0;">
-    <canvas id="graph-canvas" width="936" height="969" tabindex="0">
+    <canvas id="graph-canvas" width="936" height="969" tabindex="0" style="outline:none">
 
     </canvas>
     <script type="text/javascript">
@@ -55,6 +55,7 @@
         const ctx = canvas.getContext("2d");
         ctx.scale(canvas.width, canvas.height);
         let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
+        let canvasPosition = { x: 0, y: 0 };
         let updating = true;
 
         // this is set to a listener when mouse clicks, removed when mouse is released
@@ -93,9 +94,9 @@
                 canvas.removeEventListener("mousemove", mouseMoveListener)
             })
             canvas.addEventListener("keypress", (event) => {
-                console.log(event.code);
                 if (event.code == "Space") {
                     updating = !updating;
+                    event.stopPropagation();
                 }
             })
         }, "initGraph")
@@ -110,6 +111,8 @@
         const numBucketPositions = 3;
         const repulsionSmoothing = 0.99;
         const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
+
+        const proj = 0.5;
 
         const [bucket, bucketTimeStats] = timeFunc(() => {
             // clear buckets
@@ -167,7 +170,14 @@
             ctx.clearRect(0, 0, 10000, 10000);
             ctx.restore();
 
-            ctx.translate((mousePosition.x - mousePosition.prevX) / 936, (mousePosition.y - mousePosition.prevY) / 969);
+            // ctx.translate((mousePosition.x - mousePosition.prevX) / 936, (mousePosition.y - mousePosition.prevY) / 969);
+            canvasPosition.x += (mousePosition.x - mousePosition.prevX);
+            canvasPosition.y += (mousePosition.y - mousePosition.prevY);
+            if (mousePosition.x == mousePosition.prevX && mousePosition.y == mousePosition.prevY) {
+                ctx.setTransform(936, 10, 0, 969, canvasPosition.x, canvasPosition.y);
+            } else {
+                ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (mousePosition.x - mousePosition.prevX) * proj, canvasPosition.y + (mousePosition.y - mousePosition.prevY) * proj);
+            }
             mousePosition.prevX = mousePosition.x;
             mousePosition.prevY = mousePosition.y;
             // draw lines first so they go underneath nodes
@@ -203,8 +213,7 @@
     </script>
     <script>
         const unionFindByEdges = (edges, numNodes) => {
-            const result = [];
-            resul
+            const result = [...Array(numNodes).keys()];
             const find = (x) => {
                 if (result[x] === undefined) {
                     result[x] = x;
@@ -217,14 +226,7 @@
             const union = (a, b) => {
                 result[find(a)] = find(b);
             }
-
             edges.forEach(([a, b]) => union(a, b));
-
-            for (let i = 0; i < result.length; i++) {
-                if (result[i] === undefined) {
-                    result[i] = i;
-                }
-            }
             return result;
         }
         console.log(unionFindByEdges([[1, 2], [3, 4]]))
