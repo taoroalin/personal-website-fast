@@ -1,0 +1,26 @@
+<script>
+    /**
+     * tiny neural network to predict mouse movement
+     * 
+     * input: 20 mouse positions
+     * output: next 5 mouse positions
+     */
+    const layerSizes = [40, 80, 80, 80, 10]
+    const weights = [];
+    for (let i = 0; i < layerSizes.length - 1; i++) {
+        weights.push([...Array(layerSizes[i])].map([...Array(layerSizes[i + 1])].map(_ => Math.random())));
+    }
+    console.log(weights);
+
+    const nonlinearity = (x) => Math.max(x, 0);
+    const dot = null;
+    const matmul = (vector, matrix) => {
+
+    }
+    const applyLayer = (activations) => {
+
+    }
+    const predict = (input) => {
+        return weights.reduce(applyLayer, input)
+    }
+</script>

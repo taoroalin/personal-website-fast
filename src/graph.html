@@ -229,7 +229,6 @@
                 predictedPosition.y = positions[positions.length - 1].y + deltaY;
 
             }
-            console.log(predictedPosition);
             return predictedPosition;
         }
 
@@ -239,8 +238,8 @@
             ctx.translate(-5000, -5000);
             ctx.clearRect(0, 0, 10000, 10000);
             ctx.restore();
-            // ctx.translate((mousePosition.x - mousePosition.prevX) / 936, (mousePosition.y - mousePosition.prevY) / 969);
 
+            // Mouse dragging whole canvas
             const lastIdx = mousePosition.length - 1;
             const cur = mousePosition[lastIdx];
             const prev = mousePosition[lastIdx - 1];
@@ -253,6 +252,7 @@
                 ctx.setTransform(936, 10, 0, 969, canvasPosition.x + (proj.x - cur.x) * 1.5, canvasPosition.y + (proj.y - cur.y) * 1.5);
             }
             mousePosition.push(mousePosition[mousePosition.length - 1]);
+
             // draw lines first so they go underneath nodes
             ctx.fillStyle = "red";
             ctx.lineWidth = 0.002;
@@ -284,6 +284,7 @@
         }, "update");
         window.requestAnimationFrame(update);
     </script>
+
     <script>
         const unionFindByEdges = (edges, numNodes) => {
             const result = [...Array(numNodes).keys()];
