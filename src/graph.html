@@ -32,21 +32,28 @@
         }
 
         // testing paramameters
-        const numNodes = 2000;
-        const numEdges = 2000;
+        let numNodes = 20;
+        const numEdges = 20;
+        const numBuckets = 8; // grid of buckets 8 wide, 64 buckets total
+        class Node {
+            constructor(inX, inY) {
+                this.x = inX;
+                this.y = inY;
+                this.dx = 0;
+                this.dy = 0;
+                this.ax = 0; // acceleration for smoothing
+                this.ay = 0;
+                this.connected = false;
+            }
+        }
 
         // Mutable state
-        const nodeXs = new Float32Array(numNodes);
-        const nodeYs = new Float32Array(numNodes);
-        const nodeDXs = new Float32Array(numNodes);
-        const nodeDYs = new Float32Array(numNodes);
-        const edgeStarts = new Int32Array(numEdges);
-        const edgeEnds = new Int32Array(numEdges);
-
+        let nodes = [];
+        let edges = [];
+        let buckets;
         const canvas = document.getElementById("graph-canvas");
         const ctx = canvas.getContext("2d");
         ctx.scale(canvas.width, canvas.height);
-
         let mousePosition = [];
         let canvasPosition = { x: 0, y: 0 };
         let updating = true;
@@ -59,15 +66,21 @@
 
         const [initGraph, initGraphTimeStats] = timeFunc(() => {
             for (let i = 0; i < numNodes; i++) {
-                nodeXs[i] = Math.random();
-                nodeYs[i] = Math.random();
+                nodes.push(new Node(Math.random(), Math.random()));
             }
             for (let i = 0; i < numEdges; i++) {
-                const head = Math.floor(Math.random() * numNodes);
-                const tail = Math.floor(Math.random() * numNodes);
-                edgeStarts[i] = head;
-                edgeEnds[i] = tail;
+                const head = nodes[Math.floor(Math.random() * numNodes)];
+                const tail = nodes[Math.floor(Math.random() * numNodes)];
+                if (head != tail) {
+                    edges.push([head, tail]);
+                    head.connected = true;
+                    tail.connected = true;
+                }
             }
+            nodes = nodes.filter((x) => x.connected);
+            numNodes = nodes.length;
+            buckets = [...Array(numBuckets)].map(i => [...Array(numBuckets)].map(j => []))
+            // (repeat num-buckets (repeat num-buckets [])) cljs would be more concise
 
             canvas.addEventListener("mousedown", (event) => {
                 mousePosition = [{ x: event.offsetX, y: event.offsetY }];
@@ -93,40 +106,58 @@
         const centering = 0.005;
         const friction = 0.5
         const epsilon = 0.0001;
-        const repulsion = 0.000005;
+        const repulsion = 0.0002;
         const numBucketPositions = 3;
         const repulsionSmoothing = 0.99;
         const repulsionMultiplier = (1 - repulsionSmoothing) * repulsion / numBucketPositions;
 
+        const [bucket, bucketTimeStats] = timeFunc(() => {
+            // clear buckets
+            buckets.forEach(row => row.forEach(bucket => bucket.length = 0));
+            const offset = (Math.random() - 0.5) / numBuckets;
+            nodes.forEach(node => {
+                // could switch to bit shifting, but wouldn't work with doubles
+                const x = Math.floor((node.x + offset) * numBuckets);
+                const y = Math.floor((node.y + offset) * numBuckets);
+                if (0 < x && x < numBuckets && 0 < y && y < numBuckets) {
+                    buckets[x][y].push(node);
+                }
+            })
+            buckets.forEach(row => row.forEach(bucket => bucket.forEach(a => bucket.forEach(b => {
+                const distSquared = Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) + Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) + epsilon;
+                const accX = (a.x - b.x) / distSquared * repulsionMultiplier;
+                const accY = (a.y - b.y) / distSquared * repulsionMultiplier;
+                a.ax = a.ax * repulsionSmoothing + accX;
+                b.ax = b.ax * repulsionSmoothing - accX;
+                a.ay = a.ay * repulsionSmoothing + accY;
+                b.ay = b.ay * repulsionSmoothing - accY;
+                // a.dx += accX;
+                // b.dx -= accX;
+                // a.dy += accY;
+                // b.dy -= accY;
+            }))))
+        }, "bucket");
 
         const [move, moveTimeStats] = timeFunc(() => {
-            for (let i = 0; i < numEdges; i++) {
-                const dx = (nodeXs[edgeStarts[i]] - nodeXs[edgeEnds[i]]);
-                const dy = (nodeYs[edgeStarts[i]] - nodeYs[edgeEnds[i]]);
-                const distSquared = dx * dx + dy * dy + epsilon;
-                const accX = dx * attraction;
-                const accY = dy * attraction;
-                nodeDXs[edgeStarts[i]] -= accX;
-                nodeDXs[edgeEnds[i]] += accX;
-                nodeDYs[edgeStarts[i]] -= accY;
-                nodeDYs[edgeEnds[i]] += accY;
-            }
-            for (let i = 0; i < numNodes; i++) {
-                nodeXs[i] -= (nodeXs[i] - 0.5) * centering;
-                nodeYs[i] -= (nodeXs[i] - 0.5) * centering;
-                for (let j = 0; j < numNodes; j++) {
-                    const dx = (nodeXs[i] - nodeXs[j]) * repulsion;
-                    const dy = (nodeYs[i] - nodeYs[j]) * repulsion;
-                    nodeDXs[i] += dx;
-                    nodeDXs[j] -= dx;
-                    nodeDYs[i] += dy;
-                    nodeDYs[j] -= dy;
-                }
-                nodeXs[i] += nodeDXs[i];
-                nodeYs[i] += nodeDYs[i];
-                nodeDXs[i] *= friction;
-                nodeDYs[i] *= friction;
-            }
+            edges.forEach(([a, b]) => {
+                const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
+                const accX = (a.x - b.x) * attraction;
+                const accY = (a.y - b.y) * attraction;
+                a.dx -= accX;
+                b.dx += accX;
+                a.dy -= accY;
+                b.dy += accY;
+            });
+            nodes.forEach((a) => {
+                a.dx -= (a.x - 0.5) * centering;
+                a.dy -= (a.y - 0.5) * centering;
+                a.dx += a.ax;
+                a.dy += a.ay;
+                a.x += a.dx;
+                a.y += a.dy;
+                a.dx *= friction;
+                a.dy *= friction;
+            });
         }, "move");
 
         const proj = 4;
@@ -225,25 +256,27 @@
             // draw lines first so they go underneath nodes
             ctx.fillStyle = "red";
             ctx.lineWidth = 0.002;
-            for (let i = 0; i < numEdges; i++) {
+            edges.forEach(([node, endNode]) => {
                 ctx.beginPath();
-                ctx.moveTo(nodeXs[edgeStarts[i]], nodeYs[edgeStarts[i]]);
-                ctx.lineTo(nodeXs[edgeEnds[i]], nodeYs[edgeEnds[i]]);
-                // console.log(`sx ${sx} sy ${sy} ex ${ex} ${ey}`);
+                ctx.moveTo(node.x, node.y);
+                ctx.lineTo(endNode.x, endNode.y);
                 ctx.stroke();
-            }
+            })
 
             // draw nodes
             ctx.fillStyle = "green";
-            for (let i = 0; i < numNodes; i++) {
+            nodes.forEach((node) => {
                 ctx.beginPath();
-                ctx.arc(nodeXs[i], nodeYs[i], 0.007, 0, twoPI, false);
+                ctx.arc(node.x, node.y, 0.007, 0, twoPI, false);
                 ctx.fill();
-            }
+            })
         }, "render");
 
         const [update, updateTimeStats] = timeFunc((timestamp) => {
             if (updating) {
+                for (let i = 0; i < numBucketPositions; i++) {
+                    bucket();
+                }
                 move();
             }
             render();
