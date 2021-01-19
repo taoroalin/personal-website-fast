@@ -119,12 +119,6 @@ const friction = 0.8;
 const epsilon = 0.0001;
 const repulsion = 0.0000001;
 
-// lots of wrapper functions
-const calcAcc = (a, b, c, d) => calcAcc2(a, b, c, d);
-const calcAcc2 = (a, b, c, d) => calcAcc3(a, b, c, d);
-const calcAcc3 = (a, b, c, d) => calcAcc4(a, b, c, d);
-const calcAcc4 = (a, b, c, d) => calcAcc5(a, b, c, d);
-const calcAcc5 = (a, b, c, d) => ((a - b) / c) * d;
 var move = () => {
   edges.forEach(([a, b]) => {
     //const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
@@ -141,8 +135,8 @@ var move = () => {
         Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) +
         Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) +
         epsilon;
-      const accX = calcAcc(a.x, b.x, distSquared, repulsion);
-      const accY = calcAcc(a.y, b.y, distSquared, repulsion);
+      const accX = ((a.x - b.x) / distSquared) * repulsion;
+      const accY = ((a.y - b.y) / distSquared) * repulsion;
       a.dx += accX;
       b.dx -= accX;
       a.dy += accY;
