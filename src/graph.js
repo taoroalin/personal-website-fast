@@ -1,3 +1,30 @@
+// Mutable state
+let subGraphs;
+let nodes = [];
+let edges = [];
+
+let canvas, ctx;
+
+let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
+let updating = true;
+
+let canvasInnerWidth = 936;
+let canvasInnerHeight = 969;
+let canvasOffsetX = 0;
+let canvasOffsetY = 0;
+
+// Constants
+const attraction = 0.007;
+const friction = 0.8;
+const epsilon = 0.0001;
+const repulsion = 0.0000001;
+
+const zoomRatioPerMouseWheelTick = 0.15;
+let canvasWidth = 936;
+let canvasHeight = 969;
+
+const twoPI = 2 * Math.PI;
+
 class Node {
   constructor(title) {
     this.x = Math.random();
@@ -9,30 +36,23 @@ class Node {
   }
 }
 
-// Mutable state
-let subGraphs;
-let nodes = [];
-let edges = [];
-
-let canvas, ctx;
-
-let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
-let updating = true;
-
-var roamToPageGraph = (roam) => {
+var loadRoamJSONGraph = (roam) => {
   const pageTitleMap = {};
   roam.forEach((page, i) => (pageTitleMap[page.title] = i));
   nodes = roam.map((page) => new Node(page.title));
 
   edges = [];
+  // only count unique edges, keep track with "hash set"
   const edgeHashSet = {};
   const processBlock = (pageId, block) => {
     if (block.string !== undefined) {
+      // there must be a better way to get page links from json???
+      // this doesn't see page links inside other page links
       const pageRefs = Array.from(block.string.matchAll(/\[\[([^\]]+)\]\]/g));
       pageRefs.forEach((match) => {
         const targetPageId = pageTitleMap[match[1]];
         if (targetPageId !== undefined) {
-          const edgeHash = pageId + targetPageId * 1000000;
+          const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
           if (edgeHashSet[edgeHash] === undefined) {
             edgeHashSet[edgeHash] = true;
             nodes[pageId].numConnections += 1;
@@ -60,8 +80,8 @@ var initGraph = async () => {
   ctx = canvas.getContext("2d");
   ctx.scale(canvas.width, canvas.height);
 
-  roamJSON = await fetch("graphminer.json").then((r) => r.json());
-  roamToPageGraph(roamJSON);
+  const roamJSON = await fetch("graphminer.json").then((r) => r.json());
+  loadRoamJSONGraph(roamJSON);
 
   // subGraphs = undirectedConnectedSubGraphs(nodes, edges);
   // console.log(subGraphs);
@@ -73,6 +93,8 @@ var initGraph = async () => {
     mousePosition.y = event.offsetY;
   });
 
+  // whether currently dragging is controlled by whether prev position is nonzero
+  // need to record where mouse was when started dragging
   canvas.addEventListener("mousedown", (event) => {
     mousePosition.prevX = event.offsetX;
     mousePosition.prevY = event.offsetY;
@@ -82,8 +104,11 @@ var initGraph = async () => {
     mousePosition.prevX = 0;
     mousePosition.prevY = 0;
   };
+
   canvas.addEventListener("mouseup", stopDrag);
+
   canvas.addEventListener("mouseleave", stopDrag);
+
   canvas.addEventListener("keypress", (event) => {
     if (event.code == "Space") {
       updating = !updating;
@@ -93,7 +118,7 @@ var initGraph = async () => {
 
   canvas.addEventListener("wheel", (event) => {
     console.log(event.deltaY);
-    const scaling = (event.deltaY / 100) * scrollRatio;
+    const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
     // scaling factor from new scale to old scale
     const inverseScaling = 1 / (1 + scaling) - 1;
     const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
@@ -104,20 +129,6 @@ var initGraph = async () => {
     canvasInnerHeight = newCanvasInnerHeight;
   });
 };
-
-const scrollRatio = 0.15;
-let canvasWidth = 936;
-let canvasHeight = 969;
-let canvasInnerWidth = 936;
-let canvasInnerHeight = 969;
-let canvasOffsetX = 0;
-let canvasOffsetY = 0;
-
-const twoPI = 2 * Math.PI;
-const attraction = 0.007;
-const friction = 0.8;
-const epsilon = 0.0001;
-const repulsion = 0.0000001;
 
 var move = () => {
   edges.forEach(([a, b]) => {
@@ -151,13 +162,11 @@ var move = () => {
   });
 };
 
-var render = () => {
-  // clear canvas in positive and negative directions
-  ctx.save();
-  ctx.translate(-5000, -5000);
-  ctx.clearRect(0, 0, 10000, 10000);
-  ctx.restore();
-
+var applyViewChanges = () => {
+  /**
+   * Pan by the difference between mouse x and mouse x last frame
+   * not last mouseMove event
+   */
   if (mousePosition.prevX !== 0) {
     canvasOffsetY += mousePosition.y - mousePosition.prevY;
     canvasOffsetX += mousePosition.x - mousePosition.prevX;
@@ -172,6 +181,14 @@ var render = () => {
     canvasOffsetX,
     canvasOffsetY
   );
+};
+
+var render = () => {
+  // clear canvas in positive and negative directions
+  ctx.save();
+  ctx.translate(-5000, -5000);
+  ctx.clearRect(0, 0, 10000, 10000);
+  ctx.restore();
 
   // draw edge lines first so they go underneath nodes
   //ctx.strokeStyle = "#bbbbbb";
@@ -208,6 +225,7 @@ var update = () => {
   if (updating) {
     move();
   }
+  applyViewChanges();
   render();
   requestAnimationFrame(update);
 };
