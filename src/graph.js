@@ -16,15 +16,8 @@ let edges = [];
 
 let canvas, ctx;
 
-let mousePosition = null; //{ x: 0, y: 0, prevX: 0, prevY: 0 }
+let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
-
-// this is set to a listener when mouse clicks, removed when mouse is released
-var mouseMoveListener = (event) => {
-  mousePosition.x = event.offsetX;
-  mousePosition.y = event.offsetY;
-  // mousemove event isn't very fast. Could extrapolate future position to make it feel more responsive
-};
 
 var roamToPageGraph = (roam) => {
   const pageTitleMap = {};
@@ -32,15 +25,20 @@ var roamToPageGraph = (roam) => {
   nodes = roam.map((page) => new Node(page.title));
 
   edges = [];
+  const edgeHashSet = {};
   const processBlock = (pageId, block) => {
     if (block.string !== undefined) {
       const pageRefs = Array.from(block.string.matchAll(/\[\[([^\]]+)\]\]/g));
       pageRefs.forEach((match) => {
         const targetPageId = pageTitleMap[match[1]];
         if (targetPageId !== undefined) {
-          nodes[pageId].numConnections += 1;
-          nodes[targetPageId].numConnections += 1;
-          edges.push([nodes[pageId], nodes[targetPageId]]);
+          const edgeHash = pageId + targetPageId * 1000000;
+          if (edgeHashSet[edgeHash] === undefined) {
+            edgeHashSet[edgeHash] = true;
+            nodes[pageId].numConnections += 1;
+            nodes[targetPageId].numConnections += 1;
+            edges.push([nodes[pageId], nodes[targetPageId]]);
+          }
         }
       });
     }
@@ -70,19 +68,19 @@ var initGraph = async () => {
   // nodes = subGraphs[0].nodes;
   // edges = subGraphs[0].edges;
 
+  canvas.addEventListener("mousemove", (event) => {
+    mousePosition.x = event.offsetX;
+    mousePosition.y = event.offsetY;
+  });
+
   canvas.addEventListener("mousedown", (event) => {
-    mousePosition = {
-      x: event.offsetX,
-      y: event.offsetY,
-      prevX: event.offsetX,
-      prevY: event.offsetY,
-    };
-    canvas.addEventListener("mousemove", mouseMoveListener);
+    mousePosition.prevX = event.offsetX;
+    mousePosition.prevY = event.offsetY;
   });
 
   const stopDrag = (event) => {
-    mousePosition = null;
-    canvas.removeEventListener("mousemove", mouseMoveListener);
+    mousePosition.prevX = 0;
+    mousePosition.prevY = 0;
   };
   canvas.addEventListener("mouseup", stopDrag);
   canvas.addEventListener("mouseleave", stopDrag);
@@ -94,9 +92,26 @@ var initGraph = async () => {
   });
 
   canvas.addEventListener("wheel", (event) => {
-    ctx.scale(1 + event.deltaY * 0.001, 1 + event.deltaY * 0.001);
+    console.log(event.deltaY);
+    const scaling = (event.deltaY / 100) * scrollRatio;
+    // scaling factor from new scale to old scale
+    const inverseScaling = 1 / (1 + scaling) - 1;
+    const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
+    const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
+    canvasOffsetX += canvasInnerWidth * (mousePosition.x / canvasWidth);
+    canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvasHeight);
+    canvasInnerWidth = newCanvasInnerWidth;
+    canvasInnerHeight = newCanvasInnerHeight;
   });
 };
+
+const scrollRatio = 0.15;
+let canvasWidth = 936;
+let canvasHeight = 969;
+let canvasInnerWidth = 936;
+let canvasInnerHeight = 969;
+let canvasOffsetX = 0;
+let canvasOffsetY = 0;
 
 const twoPI = 2 * Math.PI;
 const attraction = 0.007;
@@ -143,17 +158,22 @@ var render = () => {
   ctx.clearRect(0, 0, 10000, 10000);
   ctx.restore();
 
-  // Mouse dragging whole canvas
-  if (mousePosition) {
-    ctx.translate(
-      (mousePosition.x - mousePosition.prevX) / 936,
-      (mousePosition.y - mousePosition.prevY) / 969
-    );
+  if (mousePosition.prevX !== 0) {
+    canvasOffsetY += mousePosition.y - mousePosition.prevY;
+    canvasOffsetX += mousePosition.x - mousePosition.prevX;
     mousePosition.prevX = mousePosition.x;
     mousePosition.prevY = mousePosition.y;
   }
+  ctx.setTransform(
+    canvasInnerWidth,
+    0,
+    0,
+    canvasInnerHeight,
+    canvasOffsetX,
+    canvasOffsetY
+  );
 
-  // draw lines first so they go underneath nodes
+  // draw edge lines first so they go underneath nodes
   //ctx.strokeStyle = "#bbbbbb";
   ctx.lineWidth = 0.002;
   edges.forEach(([node, endNode]) => {
@@ -167,19 +187,24 @@ var render = () => {
   ctx.fillStyle = "#555555";
   nodes.forEach((node) => {
     ctx.beginPath();
-    ctx.arc(
-      node.x,
-      node.y,
-      0.007 + node.numConnections * 0.0001,
-      0,
-      twoPI,
-      false
-    );
+    const radius = 0.007 + node.numConnections * 0.0001;
+    ctx.arc(node.x, node.y, radius, 0, twoPI, false);
     ctx.fill();
+  });
+  // draw node label backgrounds
+  ctx.fillStyle = "#eeeeee";
+  nodes.forEach((node) => {
+    ctx.fillRect(node.x - 0.05, node.y, 0.1, 0.012);
+  });
+  // draw node labels
+  ctx.font = `0.01px Verdana`;
+  ctx.fillStyle = "#000000";
+  nodes.forEach((node) => {
+    ctx.fillText(node.title, node.x - 0.045, node.y + 0.01, 20);
   });
 };
 
-var update = (timestamp) => {
+var update = () => {
   if (updating) {
     move();
   }
@@ -191,4 +216,4 @@ profileNewTopLevelFunctions();
 
 initGraph();
 
-window.requestAnimationFrame(update);
+requestAnimationFrame(update);
