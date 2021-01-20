@@ -25,21 +25,21 @@ let canvasHeight = 969;
 
 const twoPI = 2 * Math.PI;
 
-class Node {
-  constructor(title) {
-    this.x = Math.random();
-    this.y = Math.random();
-    this.dx = 0;
-    this.dy = 0;
-    this.title = title;
-    this.numConnections = 0;
-  }
-}
+const zed = () => ({ x: 1 });
+
+const newNode = (title) => ({
+  x: Math.random(),
+  y: Math.random(),
+  dx: 0,
+  dy: 0,
+  title: title,
+  numConnections: 0,
+});
 
 var loadRoamJSONGraph = (roam) => {
   const pageTitleMap = {};
   roam.forEach((page, i) => (pageTitleMap[page.title] = i));
-  nodes = roam.map((page) => new Node(page.title));
+  nodes = roam.map((page) => newNode(page.title));
 
   edges = [];
   // only count unique edges, keep track with "hash set"
@@ -53,6 +53,7 @@ var loadRoamJSONGraph = (roam) => {
         const targetPageId = pageTitleMap[match[1]];
         if (targetPageId !== undefined) {
           const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
+          // this only supports a million nodes, which is far above other bottlenecks
           if (edgeHashSet[edgeHash] === undefined) {
             edgeHashSet[edgeHash] = true;
             nodes[pageId].numConnections += 1;
@@ -117,7 +118,6 @@ var initGraph = async () => {
   });
 
   canvas.addEventListener("wheel", (event) => {
-    console.log(event.deltaY);
     const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
     // scaling factor from new scale to old scale
     const inverseScaling = 1 / (1 + scaling) - 1;
@@ -230,7 +230,7 @@ var update = () => {
   requestAnimationFrame(update);
 };
 
-profileNewTopLevelFunctions();
+//profileNewTopLevelFunctions();
 
 initGraph();
 

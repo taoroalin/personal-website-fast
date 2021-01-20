@@ -1,4 +1,4 @@
-const globalVariable = global || window;
+const globalVariable = window || global;
 globalVariable.recordedGlobals = Array.from(Object.keys(globalVariable));
 
 const profileNewTopLevelFunctions = () => {

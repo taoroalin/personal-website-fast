@@ -1,19 +1,19 @@
 <head>
     <script type="text/javascript">
-        const examplePageLinks = "i will [[Link]] to another [[Few Links]] shortly"
+        const examplePageLinks = "((Blockey)) and [[Pagey]] and another [[Few [[Links shortly]]and"
         // Descriptions of blocks that begin and end with double symbols, like [[, **, __
         const pairs = [
-            { type: "page link", start: "[", end: "]" },
+            { type: "bold", start: "*", end: "*", priority: 0 },
+            { type: "page ref", start: "[", end: "]", priority: 1 },
+            { type: "block ref", start: "(", end: ")", priority: 2 },
         ];
         const exampleAST = { type: "plain", children: [{ type: "page link", start: 0, end: 10, children: [{ type: "text", start: 2, end: 5 }] }] };
 
         const pairStartTable = pairs.reduce((acc, val) => { acc[val.start + val.start] = val; return acc }, {});
         const pairEndTable = pairs.reduce((acc, val) => { acc[val.end + val.end] = val; return acc }, {});
-        console.log(pairEndTable);
 
         // regex for blocks of chars that are under no circumstances broken up.
         const regexGuaranteedPlainText = new RegExp(`^[^${pairs.map(pair => `\\${pair.start}\\${pair.end}`).join()}]+`);
-        console.log(regexGuaranteedPlainText);
         let textLeft = examplePageLinks;
         const stime = performance.now();
         const tree = { type: "plain", children: [], start: 0, end: textLeft.length };
@@ -22,7 +22,6 @@
         while (textLeft.length > 0) {
             const wordMatch = textLeft.match(regexGuaranteedPlainText);
             if (wordMatch) {
-                stack[stack.length - 1].children.push(wordMatch[0]);
                 i += wordMatch[0].length;
                 textLeft = textLeft.substring(wordMatch[0].length);
             } else {
@@ -35,15 +34,45 @@
                 } else {
                     const pairEnd = pairEndTable[nextTwoChars];
                     if (pairEnd !== undefined) {
-                        stack[stack.length - 1].end = i + 3;
-                        stack.pop();
+                        if (pairEnd.type == stack[stack.length - 1].type) {
+                            stack[stack.length - 1].end = i + 3;
+                            stack.pop();
+                        }
                     }
                 }
                 textLeft = textLeft.substring(2);
                 i += 2;
             }
         }
+        // kill all the incomplete parses at the end
+        for (let i = 1; i < stack.length; i++) {
+            const toBarf = tree.children.pop();
+            tree.children.push(...toBarf.children);
+        }
         console.log(performance.now() - stime);
         console.log(tree);
+    </script>
+    <script type="text/javascript">
+        //tokens that are only seen at the very beginning of a block
+        const blockStartTokens = [
+            { type: "colon ref", regex: /^[^:]+::/ }, // idk what this should be called
+            // this could be handled as link nested in roam-render, or like this
+            // idk which is better
+            { type: "todo", regex: /^\{\{\[\[TODO\]\]\}\}/ },
+        ];
+        // AST nodes that never have children and can be parsed with 1 regex
+        const atomicTokens = { type: "url", regex: /((https?\:\/\/)|(www\.))[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&\/\/=]*)/ }
+    </script>
+    <script type="text/javascript">
+
+    </script>
+    <script type="text/javascript">
+        // lexer. Jonathan Blow keeps talking about how good lexers are, so I'll try using one
+
+        // const tokens = [];
+        // textLeft = examplePageLinks;
+        // while(textLeft.length>0){
+        //     const 
+        // }
     </script>
 </head>
