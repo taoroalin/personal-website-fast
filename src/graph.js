@@ -28,8 +28,8 @@ const twoPI = 2 * Math.PI;
 const zed = () => ({ x: 1 });
 
 const newNode = (title) => ({
-  x: 0,
-  y: 0,
+  x: Math.random(),
+  y: Math.random(),
   dx: 0,
   dy: 0,
   title: title,
@@ -84,11 +84,11 @@ var loadRoamJSONGraph = (roam) => {
       );
     }
   });
-  nodes.forEach((node) => {
-    const radius = 2 / (1 + node.numConnections);
-    node.x = 0.5 + (Math.random() - 0.5) * radius;
-    node.y = 0.5 + (Math.random() - 0.5) * radius;
-  });
+  // nodes.forEach((node) => {
+  //   const radius = 2 / (1 + node.numConnections);
+  //   node.x = 0.5 + (Math.random() - 0.5) * radius;
+  //   node.y = 0.5 + (Math.random() - 0.5) * radius;
+  // });
 };
 
 var initGraph = async () => {
@@ -96,8 +96,6 @@ var initGraph = async () => {
   ctx = canvas.getContext("2d");
   ctx.scale(canvas.width, canvas.height);
 
-  const roamJSON = await fetch("graphminer.json").then((r) => r.json());
-  //const roamJSON = await fetch("elianna.json").then((r) => r.json());
   loadRoamJSONGraph(roamJSON);
 
   // subGraphs = undirectedConnectedSubGraphs(nodes, edges);
@@ -251,13 +249,7 @@ var update = () => {
 
 profileNewTopLevelFunctions();
 
-var start = async () => {
-  await initGraph();
-  for (let k = 0; k < 10; k++) {
-    move();
-  }
 
-  requestAnimationFrame(update);
-};
+initGraph();
 
-start();
+requestAnimationFrame(update);
