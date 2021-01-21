@@ -14,9 +14,10 @@
 
         // regex for blocks of chars that are under no circumstances broken up.
         const regexGuaranteedPlainText = new RegExp(`^[^${pairs.map(pair => `\\${pair.start}\\${pair.end}`).join()}]+`);
-        let textLeft = examplePageLinks;
+        let textFull = examplePageLinks;
+        let textLeft = textFull;
         const stime = performance.now();
-        const tree = { type: "plain", children: [], start: 0, end: textLeft.length };
+        const tree = { type: "plain", children: [], start: 0, end: textLeft.length, string: textFull };
         const stack = [tree];
         let i = 0;
         while (textLeft.length > 0) {
@@ -28,7 +29,7 @@
                 const nextTwoChars = textLeft.substring(0, 2);
                 const pairStart = pairStartTable[nextTwoChars];
                 if (pairStart !== undefined) {
-                    const newNode = { type: pairStart.type, start: i, children: [] };
+                    const newNode = { type: pairStart.type, start: i, children: [], string: textFull };
                     stack[stack.length - 1].children.push(newNode);
                     stack.push(newNode);
                 } else {

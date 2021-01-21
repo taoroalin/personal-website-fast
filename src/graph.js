@@ -20,16 +20,16 @@ const epsilon = 0.0001;
 const repulsion = 0.0000001;
 
 const zoomRatioPerMouseWheelTick = 0.15;
-let canvasWidth = 936;
-let canvasHeight = 969;
+const canvasWidth = 936;
+const canvasHeight = 969;
 
 const twoPI = 2 * Math.PI;
 
 const zed = () => ({ x: 1 });
 
 const newNode = (title) => ({
-  x: Math.random(),
-  y: Math.random(),
+  x: 0,
+  y: 0,
   dx: 0,
   dy: 0,
   title: title,
@@ -48,8 +48,7 @@ var loadRoamJSONGraph = (roam) => {
     if (block.string !== undefined) {
       // there must be a better way to get page links from json???
       // this doesn't see page links inside other page links
-      const pageRefs = Array.from(block.string.matchAll(/\[\[([^\]]+)\]\]/g));
-      pageRefs.forEach((match) => {
+      const addPageRefEdge = (match) => {
         const targetPageId = pageTitleMap[match[1]];
         if (targetPageId !== undefined) {
           const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
@@ -60,6 +59,17 @@ var loadRoamJSONGraph = (roam) => {
             nodes[targetPageId].numConnections += 1;
             edges.push([nodes[pageId], nodes[targetPageId]]);
           }
+        }
+      };
+      const pageRefRegexes = [
+        /\#([a-zA-Z]+)/g,
+        /\[\[([^\]]+)\]\]/g,
+        /^([a-zA-Z ]+)::/g,
+      ];
+      pageRefRegexes.forEach((regex) => {
+        const matches = block.string.matchAll(regex);
+        for (let match of matches) {
+          addPageRefEdge(match);
         }
       });
     }
@@ -74,6 +84,11 @@ var loadRoamJSONGraph = (roam) => {
       );
     }
   });
+  nodes.forEach((node) => {
+    const radius = 2 / (1 + node.numConnections);
+    node.x = 0.5 + (Math.random() - 0.5) * radius;
+    node.y = 0.5 + (Math.random() - 0.5) * radius;
+  });
 };
 
 var initGraph = async () => {
@@ -82,6 +97,7 @@ var initGraph = async () => {
   ctx.scale(canvas.width, canvas.height);
 
   const roamJSON = await fetch("graphminer.json").then((r) => r.json());
+  //const roamJSON = await fetch("elianna.json").then((r) => r.json());
   loadRoamJSONGraph(roamJSON);
 
   // subGraphs = undirectedConnectedSubGraphs(nodes, edges);
@@ -121,9 +137,12 @@ var initGraph = async () => {
     const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
     // scaling factor from new scale to old scale
     const inverseScaling = 1 / (1 + scaling) - 1;
+    const fracX = mousePosition.x / canvasWidth;
+    const fracY = mousePosition.y / canvasHeight;
     const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
     const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
-    canvasOffsetX += canvasInnerWidth * (mousePosition.x / canvasWidth);
+    canvasOffsetX +=
+      canvasWidth - canvasInnerWidth * (mousePosition.x / canvasWidth);
     canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvasHeight);
     canvasInnerWidth = newCanvasInnerWidth;
     canvasInnerHeight = newCanvasInnerHeight;
@@ -175,8 +194,8 @@ var applyViewChanges = () => {
   }
   ctx.setTransform(
     canvasInnerWidth,
-    0,
-    0,
+    0, // slant x
+    0, // slant y
     canvasInnerHeight,
     canvasOffsetX,
     canvasOffsetY
@@ -230,8 +249,15 @@ var update = () => {
   requestAnimationFrame(update);
 };
 
-//profileNewTopLevelFunctions();
+profileNewTopLevelFunctions();
 
-initGraph();
+var start = async () => {
+  await initGraph();
+  for (let k = 0; k < 10; k++) {
+    move();
+  }
 
-requestAnimationFrame(update);
+  requestAnimationFrame(update);
+};
+
+start();
