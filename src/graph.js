@@ -201,7 +201,7 @@ var applyViewChanges = () => {
     mousePosition.prevY = mousePosition.y;
   }
   ctx.setTransform(
-    canvasInnerWidth,
+    canvasInnerHeight,
     0, // slant x
     0, // slant y
     canvasInnerHeight,
@@ -287,11 +287,11 @@ profileNewTopLevelFunctions();
 
 canvas = document.getElementById("graph-canvas");
 ctx = canvas.getContext("2d");
-canvas.width = Math.min(window.innerWidth, 1000);
+canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
-ctx.scale(canvas.width, canvas.height);
+ctx.scale(canvas.height, canvas.height);
 
 canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
@@ -336,9 +336,7 @@ canvas.addEventListener("wheel", (event) => {
   canvasInnerHeight = newCanvasInnerHeight;
 });
 
-// document.getElementById("status").innerText = "Extracting Graph from JSON";
 loadRoamJSONGraph(roamJSON);
-// document.getElementById("status").innerText = "Laying out graph";
 
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
   physicsUpdate();
