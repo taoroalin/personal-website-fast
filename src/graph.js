@@ -23,7 +23,7 @@ const slowdown = 0.8;
 
 const maxAngularSizeToTreatAsPoint = 1;
 const zoomRatioPerMouseWheelTick = 0.15;
-const simulationStepsBeforeRender = 60;
+const simulationStepsBeforeRender = 100;
 
 const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI;
@@ -149,7 +149,6 @@ const repelNodeByQuadTree = (node, quadTree) => {
     // if quadtree is actually leaf node
     repelNode(node, quadTree);
   } else {
-    // use manhattan distance to save time
     const ratio =
       (quadTree.x1 - quadTree.x0) /
       Math.sqrt(
@@ -270,7 +269,6 @@ var render = () => {
 
 var physicsUpdate = () => {
   makeQuadTree();
-  move();
   move();
   move();
   move();
