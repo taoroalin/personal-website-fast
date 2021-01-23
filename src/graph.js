@@ -1,3 +1,5 @@
+const graphJsStartTime = performance.now();
+
 // Mutable state
 let subGraphs;
 let nodes = [];
@@ -14,15 +16,17 @@ let canvasOffsetX = 0;
 let canvasOffsetY = 0;
 
 // Constants
-const attraction = 0.001;
-const friction = 0.8;
-const epsilon = 0.0000001;
-const repulsion = 0.0000001;
-const centering = 0.001;
+let attraction = 0.004;
+let friction = 0.9;
+let repulsion = 0.0000004;
+let centering = 0.004;
+const slowdown = 0.8;
+
 const maxAngularSizeToTreatAsPoint = 0.8;
-
 const zoomRatioPerMouseWheelTick = 0.15;
+const simulationStepsBeforeRender = 60;
 
+const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI;
 
 const newNode = (title) => ({
@@ -265,13 +269,17 @@ var render = () => {
   }
 };
 
+var physicsUpdate = () => {
+  makeQuadTree();
+  move();
+  move();
+  move();
+  move();
+};
+
 var update = () => {
   if (updating) {
-    makeQuadTree();
-    move();
-    move();
-    move();
-    move();
+    physicsUpdate();
   }
   applyViewChanges();
   render();
@@ -332,6 +340,14 @@ canvas.addEventListener("wheel", (event) => {
 });
 
 loadRoamJSONGraph(roamJSON);
+
+for (let i = 0; i < simulationStepsBeforeRender; i++) {
+  physicsUpdate();
+}
+attraction *= slowdown;
+friction *= slowdown;
+centering *= slowdown;
+console.log(`finished setting up ${performance.now() - graphJsStartTime}`);
 
 // subGraphs = undirectedConnectedSubGraphs(nodes, edges);
 // console.log(subGraphs);
