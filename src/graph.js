@@ -1,7 +1,6 @@
 const graphJsStartTime = performance.now();
 
 // Mutable state
-let subGraphs;
 let nodes = [];
 let edges = [];
 let quadTree = [];
@@ -22,7 +21,7 @@ let repulsion = 0.0000004;
 let centering = 0.004;
 const slowdown = 0.8;
 
-const maxAngularSizeToTreatAsPoint = 0.8;
+const maxAngularSizeToTreatAsPoint = 1;
 const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 60;
 
@@ -344,14 +343,9 @@ loadRoamJSONGraph(roamJSON);
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
   physicsUpdate();
 }
-attraction *= slowdown;
-friction *= slowdown;
-centering *= slowdown;
+attraction *= slowdown * slowdown;
+friction *= slowdown * slowdown;
+centering *= slowdown * slowdown;
 console.log(`finished setting up ${performance.now() - graphJsStartTime}`);
-
-// subGraphs = undirectedConnectedSubGraphs(nodes, edges);
-// console.log(subGraphs);
-// nodes = subGraphs[0].nodes;
-// edges = subGraphs[0].edges;
 
 requestAnimationFrame(update);
