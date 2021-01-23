@@ -1,4 +1,3 @@
-document.getElementById("status").innerText = "Extracting Graph from JSON";
 const graphJsStartTime = performance.now();
 
 // Mutable state
@@ -337,8 +336,9 @@ canvas.addEventListener("wheel", (event) => {
   canvasInnerHeight = newCanvasInnerHeight;
 });
 
+// document.getElementById("status").innerText = "Extracting Graph from JSON";
 loadRoamJSONGraph(roamJSON);
-document.getElementById("status").innerText = "Laying out graph";
+// document.getElementById("status").innerText = "Laying out graph";
 
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
   physicsUpdate();
