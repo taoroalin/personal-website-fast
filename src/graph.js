@@ -90,7 +90,6 @@ const quadTreeNode = (x0, x1, y0, y1, waitingRoom = []) => ({
   y1,
   waitingRoom,
   tree: [],
-  count: 0,
   xc: 0,
   yc: 0,
 });
@@ -109,11 +108,17 @@ var makeQuadTree = () => {
         quadTreeNode(branch.x0, midX, midY, branch.y1),
         quadTreeNode(midX, branch.x1, midY, branch.y1),
       ];
+      let sumY = 0,
+        sumX = 0;
       for (let node of branch.waitingRoom) {
         branch.tree[(node.x > midX) + 2 * (node.y > midY)].waitingRoom.push(
           node
         );
+        sumY += node.y;
+        sumX += node.x;
       }
+      branch.xc = sumX / branch.waitingRoom.length;
+      branch.yc = sumY / branch.waitingRoom.length;
       for (let i = 0; i < 4; i++) {
         switch (branch.tree[i].waitingRoom.length) {
           case 0:
@@ -126,7 +131,6 @@ var makeQuadTree = () => {
             newActiveBranches.push(branch.tree[i]);
         }
       }
-      delete branch.waitingRoom;
     }
     activeBranches = newActiveBranches;
   }
@@ -239,6 +243,16 @@ var render = () => {
   renderQuadTree(quadTree);
 };
 
+var update = () => {
+  if (updating) {
+    makeQuadTree();
+    move();
+  }
+  applyViewChanges();
+  render();
+  requestAnimationFrame(update);
+};
+
 profileNewTopLevelFunctions();
 
 canvas = document.getElementById("graph-canvas");
@@ -299,13 +313,4 @@ loadRoamJSONGraph(roamJSON);
 // nodes = subGraphs[0].nodes;
 // edges = subGraphs[0].edges;
 
-var update = () => {
-  if (updating) {
-    makeQuadTree();
-    move();
-  }
-  applyViewChanges();
-  render();
-  requestAnimationFrame(update);
-};
 requestAnimationFrame(update);
