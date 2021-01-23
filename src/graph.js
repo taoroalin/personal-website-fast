@@ -19,7 +19,7 @@ const friction = 0.8;
 const epsilon = 0.0000001;
 const repulsion = 0.0000001;
 const centering = 0.001;
-const maxAngularSizeToTreatAsPoint = 0.8;
+const maxAngularSizeToTreatAsPoint = 0.4;
 
 const zoomRatioPerMouseWheelTick = 0.15;
 
@@ -282,7 +282,7 @@ profileNewTopLevelFunctions();
 
 canvas = document.getElementById("graph-canvas");
 ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
+canvas.width = Math.min(window.innerWidth, 1000);
 canvas.height = window.innerHeight;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
