@@ -1,3 +1,4 @@
+document.getElementById("status").innerText = "Extracting Graph from JSON";
 const graphJsStartTime = performance.now();
 
 // Mutable state
@@ -337,6 +338,7 @@ canvas.addEventListener("wheel", (event) => {
 });
 
 loadRoamJSONGraph(roamJSON);
+document.getElementById("status").innerText = "Laying out graph";
 
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
   physicsUpdate();
@@ -344,6 +346,8 @@ for (let i = 0; i < simulationStepsBeforeRender; i++) {
 attraction *= slowdown * slowdown;
 friction *= slowdown * slowdown;
 centering *= slowdown * slowdown;
-console.log(`finished setting up ${performance.now() - graphJsStartTime}`);
 
 requestAnimationFrame(update);
+
+console.log(`parsed JSON to render in ${performance.now() - graphJsStartTime}`);
+document.getElementById("status").innerText = "Running";
