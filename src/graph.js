@@ -8,16 +8,18 @@ let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
+let showQuadTree = false;
 
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
 
 // Constants
-const attraction = 0.007;
+const attraction = 0.001;
 const friction = 0.8;
-const epsilon = 0.0001;
+const epsilon = 0.0000001;
 const repulsion = 0.0000001;
-const maxAngularSizeToTreatAsPoint = 1;
+const centering = 0.001;
+const maxAngularSizeToTreatAsPoint = 0.8;
 
 const zoomRatioPerMouseWheelTick = 0.15;
 
@@ -161,9 +163,9 @@ const repelNodeByQuadTree = (node, quadTree) => {
 
 var move = () => {
   edges.forEach(([a, b]) => {
-    //const distSquared = (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + epsilon;
-    const accX = (a.x - b.x) * attraction;
-    const accY = (a.y - b.y) * attraction;
+    const distSquared = Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + epsilon;
+    const accX = ((a.x - b.x) * attraction) / distSquared;
+    const accY = ((a.y - b.y) * attraction) / distSquared;
     a.dx -= accX;
     b.dx += accX;
     a.dy -= accY;
@@ -175,23 +177,9 @@ var move = () => {
     repelNodeByQuadTree(node, quadTree);
   });
 
-  // no quadtree
-  // nodes.forEach((a) =>
-  //   nodes.forEach((b) => {
-  //     const distSquared =
-  //       Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) +
-  //       Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) +
-  //       epsilon;
-  //     const accX = ((a.x - b.x) / distSquared) * repulsion;
-  //     const accY = ((a.y - b.y) / distSquared) * repulsion;
-  //     a.dx += accX;
-  //     b.dx -= accX;
-  //     a.dy += accY;
-  //     b.dy -= accY;
-  //   })
-  // );
-
   nodes.forEach((a) => {
+    a.x -= (a.x - 0.5) * centering;
+    a.y -= (a.y - 0.5) * centering;
     a.x += a.dx;
     a.y += a.dy;
     a.dx *= friction;
@@ -270,9 +258,11 @@ var render = () => {
     ctx.fillText(node.title, node.x - 0.045, node.y + 0.01, 20);
   });
 
-  ctx.strokeStyle = "#00ff00";
-  ctx.lineWidth = 0.0005;
-  renderQuadTree(quadTree);
+  if (showQuadTree) {
+    ctx.strokeStyle = "#00ff00";
+    ctx.lineWidth = 0.0005;
+    renderQuadTree(quadTree);
+  }
 };
 
 var update = () => {
