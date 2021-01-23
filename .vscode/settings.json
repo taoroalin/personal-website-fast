@@ -1,2 +1,4 @@
 {
+    "editor.formatOnSave": true,
+    "javascript.suggest.enabled": false
 }

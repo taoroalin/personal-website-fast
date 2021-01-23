@@ -2,14 +2,13 @@
 let subGraphs;
 let nodes = [];
 let edges = [];
+let quadTree = [];
 
 let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
 
-let canvasInnerWidth = 936;
-let canvasInnerHeight = 969;
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
 
@@ -20,12 +19,8 @@ const epsilon = 0.0001;
 const repulsion = 0.0000001;
 
 const zoomRatioPerMouseWheelTick = 0.15;
-const canvasWidth = 936;
-const canvasHeight = 969;
 
 const twoPI = 2 * Math.PI;
-
-const zed = () => ({ x: 1 });
 
 const newNode = (title) => ({
   x: Math.random(),
@@ -48,19 +43,6 @@ var loadRoamJSONGraph = (roam) => {
     if (block.string !== undefined) {
       // there must be a better way to get page links from json???
       // this doesn't see page links inside other page links
-      const addPageRefEdge = (match) => {
-        const targetPageId = pageTitleMap[match[1]];
-        if (targetPageId !== undefined) {
-          const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
-          // this only supports a million nodes, which is far above other bottlenecks
-          if (edgeHashSet[edgeHash] === undefined) {
-            edgeHashSet[edgeHash] = true;
-            nodes[pageId].numConnections += 1;
-            nodes[targetPageId].numConnections += 1;
-            edges.push([nodes[pageId], nodes[targetPageId]]);
-          }
-        }
-      };
       const pageRefRegexes = [
         /\#([a-zA-Z]+)/g,
         /\[\[([^\]]+)\]\]/g,
@@ -69,7 +51,17 @@ var loadRoamJSONGraph = (roam) => {
       pageRefRegexes.forEach((regex) => {
         const matches = block.string.matchAll(regex);
         for (let match of matches) {
-          addPageRefEdge(match);
+          const targetPageId = pageTitleMap[match[1]];
+          if (targetPageId !== undefined) {
+            const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
+            // this only supports a million nodes, which is far above other bottlenecks
+            if (edgeHashSet[edgeHash] === undefined) {
+              edgeHashSet[edgeHash] = true;
+              nodes[pageId].numConnections += 1;
+              nodes[targetPageId].numConnections += 1;
+              edges.push([nodes[pageId], nodes[targetPageId]]);
+            }
+          }
         }
       });
     }
@@ -91,60 +83,53 @@ var loadRoamJSONGraph = (roam) => {
   // });
 };
 
-var initGraph = async () => {
-  canvas = document.getElementById("graph-canvas");
-  ctx = canvas.getContext("2d");
-  ctx.scale(canvas.width, canvas.height);
+const quadTreeNode = (x0, x1, y0, y1, waitingRoom = []) => ({
+  x0,
+  x1,
+  y0,
+  y1,
+  waitingRoom,
+  tree: [],
+  count: 0,
+  xc: 0,
+  yc: 0,
+});
 
-  loadRoamJSONGraph(roamJSON);
-
-  // subGraphs = undirectedConnectedSubGraphs(nodes, edges);
-  // console.log(subGraphs);
-  // nodes = subGraphs[0].nodes;
-  // edges = subGraphs[0].edges;
-
-  canvas.addEventListener("mousemove", (event) => {
-    mousePosition.x = event.offsetX;
-    mousePosition.y = event.offsetY;
-  });
-
-  // whether currently dragging is controlled by whether prev position is nonzero
-  // need to record where mouse was when started dragging
-  canvas.addEventListener("mousedown", (event) => {
-    mousePosition.prevX = event.offsetX;
-    mousePosition.prevY = event.offsetY;
-  });
-
-  const stopDrag = (event) => {
-    mousePosition.prevX = 0;
-    mousePosition.prevY = 0;
-  };
-
-  canvas.addEventListener("mouseup", stopDrag);
-
-  canvas.addEventListener("mouseleave", stopDrag);
-
-  canvas.addEventListener("keypress", (event) => {
-    if (event.code == "Space") {
-      updating = !updating;
-      event.stopPropagation();
+var makeQuadTree = () => {
+  quadTree = quadTreeNode(-1, 2, -1, 2, nodes);
+  let activeBranches = [quadTree];
+  for (let i = 0; i < 10 && activeBranches.length > 0; i++) {
+    const newActiveBranches = [];
+    for (let branch of activeBranches) {
+      const midX = branch.x0 + (branch.x1 - branch.x0) * 0.5;
+      const midY = branch.y0 + (branch.y1 - branch.y0) * 0.5;
+      branch.tree = [
+        quadTreeNode(branch.x0, midX, branch.y0, midY),
+        quadTreeNode(midX, branch.x1, branch.y0, midY),
+        quadTreeNode(branch.x0, midX, midY, branch.y1),
+        quadTreeNode(midX, branch.x1, midY, branch.y1),
+      ];
+      for (let node of branch.waitingRoom) {
+        branch.tree[(node.x > midX) + 2 * (node.y > midY)].waitingRoom.push(
+          node
+        );
+      }
+      for (let i = 0; i < 4; i++) {
+        switch (branch.tree[i].waitingRoom.length) {
+          case 0:
+            branch.tree[i] = undefined;
+            break;
+          case 1:
+            branch.tree[i] = branch.tree[i].waitingRoom[0];
+            break;
+          default:
+            newActiveBranches.push(branch.tree[i]);
+        }
+      }
+      delete branch.waitingRoom;
     }
-  });
-
-  canvas.addEventListener("wheel", (event) => {
-    const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
-    // scaling factor from new scale to old scale
-    const inverseScaling = 1 / (1 + scaling) - 1;
-    const fracX = mousePosition.x / canvasWidth;
-    const fracY = mousePosition.y / canvasHeight;
-    const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
-    const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
-    canvasOffsetX +=
-      canvasWidth - canvasInnerWidth * (mousePosition.x / canvasWidth);
-    canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvasHeight);
-    canvasInnerWidth = newCanvasInnerWidth;
-    canvasInnerHeight = newCanvasInnerHeight;
-  });
+    activeBranches = newActiveBranches;
+  }
 };
 
 var move = () => {
@@ -200,6 +185,18 @@ var applyViewChanges = () => {
   );
 };
 
+var renderQuadTree = (quadTree) => {
+  if (quadTree && quadTree.tree) {
+    ctx.strokeRect(
+      quadTree.x0,
+      quadTree.y0,
+      quadTree.x1 - quadTree.x0,
+      quadTree.y1 - quadTree.y0
+    );
+    quadTree.tree.forEach(renderQuadTree);
+  }
+};
+
 var render = () => {
   // clear canvas in positive and negative directions
   ctx.save();
@@ -208,7 +205,7 @@ var render = () => {
   ctx.restore();
 
   // draw edge lines first so they go underneath nodes
-  //ctx.strokeStyle = "#bbbbbb";
+  ctx.strokeStyle = "#bbbbbb";
   ctx.lineWidth = 0.002;
   edges.forEach(([node, endNode]) => {
     ctx.beginPath();
@@ -217,14 +214,14 @@ var render = () => {
     ctx.stroke();
   });
 
-  // draw nodes
-  ctx.fillStyle = "#555555";
-  nodes.forEach((node) => {
-    ctx.beginPath();
-    const radius = 0.007 + node.numConnections * 0.0001;
-    ctx.arc(node.x, node.y, radius, 0, twoPI, false);
-    ctx.fill();
-  });
+  // // draw nodes
+  // ctx.fillStyle = "#555555";
+  // nodes.forEach((node) => {
+  //   ctx.beginPath();
+  //   const radius = 0.007 + node.numConnections * 0.0001;
+  //   ctx.arc(node.x, node.y, radius, 0, twoPI, false);
+  //   ctx.fill();
+  // });
   // draw node label backgrounds
   ctx.fillStyle = "#eeeeee";
   nodes.forEach((node) => {
@@ -236,20 +233,79 @@ var render = () => {
   nodes.forEach((node) => {
     ctx.fillText(node.title, node.x - 0.045, node.y + 0.01, 20);
   });
+
+  ctx.strokeStyle = "#00ff00";
+  ctx.lineWidth = 0.001;
+  renderQuadTree(quadTree);
 };
+
+profileNewTopLevelFunctions();
+
+canvas = document.getElementById("graph-canvas");
+ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+let canvasInnerWidth = canvas.width;
+let canvasInnerHeight = canvas.height;
+ctx.scale(canvas.width, canvas.height);
+
+canvas.addEventListener("mousemove", (event) => {
+  mousePosition.x = event.offsetX;
+  mousePosition.y = event.offsetY;
+});
+
+// whether currently dragging is controlled by whether prev position is nonzero
+// need to record where mouse was when started dragging
+canvas.addEventListener("mousedown", (event) => {
+  mousePosition.prevX = event.offsetX;
+  mousePosition.prevY = event.offsetY;
+});
+
+const stopDrag = (event) => {
+  mousePosition.prevX = 0;
+  mousePosition.prevY = 0;
+};
+
+canvas.addEventListener("mouseup", stopDrag);
+
+canvas.addEventListener("mouseleave", stopDrag);
+
+canvas.addEventListener("keypress", (event) => {
+  if (event.code == "Space") {
+    updating = !updating;
+    event.stopPropagation();
+  }
+});
+
+canvas.addEventListener("wheel", (event) => {
+  const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
+  // scaling factor from new scale to old scale
+  const inverseScaling = 1 / (1 + scaling) - 1;
+  const fracX = mousePosition.x / canvas.width;
+  const fracY = mousePosition.y / canvas.height;
+  const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
+  const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
+  canvasOffsetX +=
+    canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
+  canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
+  canvasInnerWidth = newCanvasInnerWidth;
+  canvasInnerHeight = newCanvasInnerHeight;
+});
+
+loadRoamJSONGraph(roamJSON);
+
+// subGraphs = undirectedConnectedSubGraphs(nodes, edges);
+// console.log(subGraphs);
+// nodes = subGraphs[0].nodes;
+// edges = subGraphs[0].edges;
 
 var update = () => {
   if (updating) {
+    makeQuadTree();
     move();
   }
   applyViewChanges();
   render();
   requestAnimationFrame(update);
 };
-
-profileNewTopLevelFunctions();
-
-
-initGraph();
-
 requestAnimationFrame(update);
