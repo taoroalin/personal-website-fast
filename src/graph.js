@@ -17,6 +17,7 @@ const attraction = 0.007;
 const friction = 0.8;
 const epsilon = 0.0001;
 const repulsion = 0.0000001;
+const maxAngularSizeToTreatAsPoint = 1;
 
 const zoomRatioPerMouseWheelTick = 0.15;
 
@@ -76,63 +77,85 @@ var loadRoamJSONGraph = (roam) => {
       );
     }
   });
-  // nodes.forEach((node) => {
-  //   const radius = 2 / (1 + node.numConnections);
-  //   node.x = 0.5 + (Math.random() - 0.5) * radius;
-  //   node.y = 0.5 + (Math.random() - 0.5) * radius;
-  // });
 };
 
-const quadTreeNode = (x0, x1, y0, y1, waitingRoom = []) => ({
+const quadTreeNode = (x0, x1, y0, y1, kids = []) => ({
   x0,
   x1,
   y0,
   y1,
-  waitingRoom,
+  kids,
   tree: [],
-  xc: 0,
-  yc: 0,
+  x: 0,
+  y: 0,
 });
+
+const pushQuadTree = (branch, depth) => {
+  if (depth >= 20) {
+    return branch;
+  }
+  const midX = branch.x0 + (branch.x1 - branch.x0) * 0.5;
+  const midY = branch.y0 + (branch.y1 - branch.y0) * 0.5;
+  branch.tree = [
+    quadTreeNode(branch.x0, midX, branch.y0, midY),
+    quadTreeNode(midX, branch.x1, branch.y0, midY),
+    quadTreeNode(branch.x0, midX, midY, branch.y1),
+    quadTreeNode(midX, branch.x1, midY, branch.y1),
+  ];
+  let sumY = 0,
+    sumX = 0;
+  for (let node of branch.kids) {
+    branch.tree[(node.x > midX) + 2 * (node.y > midY)].kids.push(node);
+    sumY += node.y;
+    sumX += node.x;
+  }
+  branch.x = sumX / branch.kids.length;
+  branch.y = sumY / branch.kids.length;
+  for (let i = 0; i < 4; i++) {
+    const len = branch.tree[i].kids.length;
+    if (len == 0) {
+      branch.tree[i] = undefined;
+    } else if (len == 1) {
+      branch.tree[i] = branch.tree[i].kids[0];
+    } else {
+      pushQuadTree(branch.tree[i], depth + 1);
+    }
+  }
+};
 
 var makeQuadTree = () => {
   quadTree = quadTreeNode(-1, 2, -1, 2, nodes);
-  let activeBranches = [quadTree];
-  for (let i = 0; i < 10 && activeBranches.length > 0; i++) {
-    const newActiveBranches = [];
-    for (let branch of activeBranches) {
-      const midX = branch.x0 + (branch.x1 - branch.x0) * 0.5;
-      const midY = branch.y0 + (branch.y1 - branch.y0) * 0.5;
-      branch.tree = [
-        quadTreeNode(branch.x0, midX, branch.y0, midY),
-        quadTreeNode(midX, branch.x1, branch.y0, midY),
-        quadTreeNode(branch.x0, midX, midY, branch.y1),
-        quadTreeNode(midX, branch.x1, midY, branch.y1),
-      ];
-      let sumY = 0,
-        sumX = 0;
-      for (let node of branch.waitingRoom) {
-        branch.tree[(node.x > midX) + 2 * (node.y > midY)].waitingRoom.push(
-          node
-        );
-        sumY += node.y;
-        sumX += node.x;
-      }
-      branch.xc = sumX / branch.waitingRoom.length;
-      branch.yc = sumY / branch.waitingRoom.length;
-      for (let i = 0; i < 4; i++) {
-        switch (branch.tree[i].waitingRoom.length) {
-          case 0:
-            branch.tree[i] = undefined;
-            break;
-          case 1:
-            branch.tree[i] = branch.tree[i].waitingRoom[0];
-            break;
-          default:
-            newActiveBranches.push(branch.tree[i]);
-        }
-      }
+  pushQuadTree(quadTree, 0);
+};
+
+const repelNode = (node, node2) => {
+  const distSquared =
+    Math.abs((node.x - node2.x) * (node.x - node2.x) * (node.x - node2.x)) +
+    Math.abs((node.y - node2.y) * (node.y - node2.y) * (node.y - node2.y)) +
+    epsilon;
+  const factor = node2.kids ? node2.kids.length : 1;
+  node.dx += ((node.x - node2.x) / distSquared) * factor * repulsion;
+  node.dy += ((node.y - node2.y) / distSquared) * factor * repulsion;
+};
+
+const repelNodeByQuadTree = (node, quadTree) => {
+  if (quadTree === undefined) {
+  } else if (quadTree.numConnections !== undefined) {
+    // if quadtree is actually leaf node
+    repelNode(node, quadTree);
+  } else {
+    // use manhattan distance to save time
+    const ratio =
+      (quadTree.x1 - quadTree.x0) /
+      Math.sqrt(
+        (node.x - quadTree.x) * (node.x - quadTree.x) +
+          (node.y - quadTree.y) * (node.y - quadTree.y)
+      );
+    if (ratio < maxAngularSizeToTreatAsPoint) {
+      repelNode(node, quadTree);
+    } else {
+      quadTree.tree.forEach((tree) => repelNodeByQuadTree(node, tree));
     }
-    activeBranches = newActiveBranches;
   }
 };
 
@@ -146,20 +169,28 @@ var move = () => {
     a.dy -= accY;
     b.dy += accY;
   });
-  nodes.forEach((a) =>
-    nodes.forEach((b) => {
-      const distSquared =
-        Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) +
-        Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) +
-        epsilon;
-      const accX = ((a.x - b.x) / distSquared) * repulsion;
-      const accY = ((a.y - b.y) / distSquared) * repulsion;
-      a.dx += accX;
-      b.dx -= accX;
-      a.dy += accY;
-      b.dy -= accY;
-    })
-  );
+
+  // Barnes-hut repulsion
+  nodes.forEach((node) => {
+    repelNodeByQuadTree(node, quadTree);
+  });
+
+  // no quadtree
+  // nodes.forEach((a) =>
+  //   nodes.forEach((b) => {
+  //     const distSquared =
+  //       Math.abs((a.x - b.x) * (a.x - b.x) * (a.x - b.x)) +
+  //       Math.abs((a.y - b.y) * (a.y - b.y) * (a.y - b.y)) +
+  //       epsilon;
+  //     const accX = ((a.x - b.x) / distSquared) * repulsion;
+  //     const accY = ((a.y - b.y) / distSquared) * repulsion;
+  //     a.dx += accX;
+  //     b.dx -= accX;
+  //     a.dy += accY;
+  //     b.dy -= accY;
+  //   })
+  // );
+
   nodes.forEach((a) => {
     a.x += a.dx;
     a.y += a.dy;
@@ -226,6 +257,7 @@ var render = () => {
   //   ctx.arc(node.x, node.y, radius, 0, twoPI, false);
   //   ctx.fill();
   // });
+
   // draw node label backgrounds
   ctx.fillStyle = "#eeeeee";
   nodes.forEach((node) => {
@@ -239,13 +271,16 @@ var render = () => {
   });
 
   ctx.strokeStyle = "#00ff00";
-  ctx.lineWidth = 0.001;
+  ctx.lineWidth = 0.0005;
   renderQuadTree(quadTree);
 };
 
 var update = () => {
   if (updating) {
     makeQuadTree();
+    move();
+    move();
+    move();
     move();
   }
   applyViewChanges();
