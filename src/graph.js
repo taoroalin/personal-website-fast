@@ -19,7 +19,7 @@ const friction = 0.8;
 const epsilon = 0.0000001;
 const repulsion = 0.0000001;
 const centering = 0.001;
-const maxAngularSizeToTreatAsPoint = 0.4;
+const maxAngularSizeToTreatAsPoint = 0.8;
 
 const zoomRatioPerMouseWheelTick = 0.15;
 
