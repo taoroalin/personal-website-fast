@@ -20,7 +20,7 @@ let repulsion = 0.0000004;
 let centering = 0.004;
 const slowdown = 0.8;
 
-const maxAngularSizeToTreatAsPoint = 0.5;
+const maxSizeRatioToApproximate = 0.5;
 const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 100;
 
@@ -28,8 +28,8 @@ const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI;
 
 // visuals
-const labelPaddingX = 0.006;
-const labelPaddingY = 0.006;
+const labelPaddingX = 0.003;
+const labelPaddingY = 0.003;
 let showQuadTree = false;
 
 const labelExtraWidth = 2 * labelPaddingX;
@@ -46,6 +46,8 @@ const newNode = (title) => ({
   textWidth: ctx.measureText(title).width,
 });
 
+// I'm using a script to automatically track performance on all functions I define using `var`
+// for development. Will switch to const for production
 var loadRoamJSONGraph = (roam) => {
   const pageTitleMap = {};
   roam.forEach((page, i) => (pageTitleMap[page.title] = i));
@@ -65,7 +67,6 @@ var loadRoamJSONGraph = (roam) => {
           const targetPageId = pageTitleMap[match[1]];
           if (targetPageId !== undefined) {
             const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
-            // this only supports a million nodes, which is far above other bottlenecks
             if (edgeHashSet[edgeHash] === undefined) {
               edgeHashSet[edgeHash] = true;
               nodes[pageId].numConnections += 1;
@@ -148,13 +149,13 @@ const repelNode = (node, node2) => {
 const repelNodeByQuadTree = (node, quadTree) => {
   if (quadTree === undefined) {
   } else if (quadTree.numConnections !== undefined) {
-    // if quadtree is actually leaf node
+    // if quadtree is actually leaf node, not a quadtree
     repelNode(node, quadTree);
   } else {
-    const ratio =
+    const quadTreeSizeOverDistanceFromPoint =
       quadTree.r /
       Math.sqrt((node.x - quadTree.x) * (node.x - quadTree.x) + (node.y - quadTree.y) * (node.y - quadTree.y));
-    if (ratio < maxAngularSizeToTreatAsPoint) {
+    if (quadTreeSizeOverDistanceFromPoint < maxSizeRatioToApproximate) {
       repelNode(node, quadTree);
     } else {
       quadTree.tree.forEach((tree) => repelNodeByQuadTree(node, tree));
