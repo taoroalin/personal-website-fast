@@ -48,6 +48,7 @@ const newNode = (title) => ({
   numConnections: 0,
   // measure text width up front, not in loop. This requires ctx font to be already set.
   textWidth: ctx.measureText(title).width,
+  mass: 1,
 });
 
 // I'm using a script to automatically track performance on all functions I define using `var`
@@ -101,6 +102,7 @@ const quadTreeNode = (x, y, r, kids = []) => ({
   r,
   kids,
   tree: [],
+  mass: 0,
 });
 
 // move all kids in quadtree to child quadtrees, recursively
@@ -125,11 +127,12 @@ const pushQuadTree = (branch, depth) => {
   }
   branch.x = sumX / branch.kids.length;
   branch.y = sumY / branch.kids.length;
+  branch.mass = branch.kids.length;
   for (let i = 0; i < 4; i++) {
     const len = branch.tree[i].kids.length;
-    if (len == 0) {
+    if (len === 0) {
       branch.tree[i] = undefined;
-    } else if (len == 1) {
+    } else if (len === 1) {
       branch.tree[i] = branch.tree[i].kids[0];
     } else {
       pushQuadTree(branch.tree[i], depth + 1);
@@ -142,30 +145,25 @@ var makeQuadTree = () => {
   pushQuadTree(quadTree, 0);
 };
 
-const repelNode = (node, node2) => {
-  const dx = node.x - node2.x;
-  const dy = node.y - node2.y;
-  const distanceMangledForPerformance = Math.abs(dx * dx * dx) + Math.abs(dy * dy * dy) + epsilon;
-  const mass = node2.kids ? node2.kids.length : 1;
-  const factor = (mass * repulsion) / distanceMangledForPerformance;
-  node.dx += dx * factor;
-  node.dy += dy * factor;
-};
-
 const repelNodeByQuadTree = (node, quadTree) => {
   if (quadTree === undefined) {
-  } else if (quadTree.numConnections !== undefined) {
-    // if quadtree is actually leaf node, not a quadtree
-    repelNode(node, quadTree);
+    return;
+  }
+  const dx = node.x - quadTree.x;
+  const dy = node.y - quadTree.y;
+  if (
+    // if quadtree has children but it's far away and should be approximated
+    (quadTree.tree !== undefined && quadTree.r / Math.sqrt(dx * dx + dy * dy) < maxSizeRatioToApproximate) ||
+    // if node is leaf
+    quadTree.numConnections !== undefined
+  ) {
+    // this looks kinda like distance, right?
+    const distanceMangledForPerformance = Math.abs(dx * dx * dx) + Math.abs(dy * dy * dy) + epsilon;
+    const factor = (quadTree.mass * repulsion) / distanceMangledForPerformance;
+    node.dx += dx * factor;
+    node.dy += dy * factor;
   } else {
-    const quadTreeSizeOverDistanceFromPoint =
-      quadTree.r /
-      Math.sqrt((node.x - quadTree.x) * (node.x - quadTree.x) + (node.y - quadTree.y) * (node.y - quadTree.y));
-    if (quadTreeSizeOverDistanceFromPoint < maxSizeRatioToApproximate) {
-      repelNode(node, quadTree);
-    } else {
-      quadTree.tree.forEach((tree) => repelNodeByQuadTree(node, tree));
-    }
+    quadTree.tree.forEach((tree) => repelNodeByQuadTree(node, tree));
   }
 };
 
@@ -184,9 +182,7 @@ var physicsTick = () => {
   });
 
   makeQuadTree();
-  nodes.forEach((node) => {
-    repelNodeByQuadTree(node, quadTree);
-  });
+  nodes.forEach((node) => repelNodeByQuadTree(node, quadTree));
 
   nodes.forEach((node) => {
     node.x -= (node.x - 0.5) * centering;
@@ -283,7 +279,6 @@ ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 // fit to whole window except for text at top
 const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop);
-console.log(fromTop);
 canvas.height = window.innerHeight - fromTop;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
@@ -320,7 +315,7 @@ canvas.addEventListener("mouseup", stopDrag);
 canvas.addEventListener("mouseleave", stopDrag);
 
 canvas.addEventListener("keypress", (event) => {
-  if (event.code == "Space") {
+  if (event.code === "Space") {
     updating = !updating;
     event.stopPropagation();
     event.preventDefault();
