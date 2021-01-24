@@ -2,13 +2,14 @@
     <script>
         var firstJsTime = performance.now();
     </script>
-    <h2>
+    <h3>
         Graph layout of the <a href="https://roamresearch.com/#/app/help">Roam help graph</a>. You can look at the
         source code in Dev Tools or <a
             href="https://github.com/taoroalin/personal-website-fast/blob/master/src/graph.js">here</a>. <a
             href="https://roamresearch.com/#/app/graphminer/page/rIYARslui">A few notes on this in Roam</a>. Press space
-        to stop simulation. <em>Status: <span id="status">Loading</span></em>
-    </h2>
+        to stop simulation. <em>Status: <span id="status">Loading</span>.</em><span> Time between parsing Roam exported
+            JSON and render: <span id="startupTime"></span> seconds.</span><span> FPS: <span id="fps"></span></span>
+    </h3>
     <canvas id="graph-canvas" width="936" height="969" tabindex="0" style="outline:none">
     </canvas>
     <script src="timing.js"></script>

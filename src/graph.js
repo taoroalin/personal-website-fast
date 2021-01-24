@@ -1,4 +1,5 @@
 const graphJsStartTime = performance.now();
+let lastFrameStartTime = 0;
 
 // Mutable state
 let nodes = [];
@@ -253,6 +254,9 @@ var render = () => {
 };
 
 var update = () => {
+  const frameStatTime = performance.now();
+  document.getElementById("fps").innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
+  lastFrameStartTime = frameStatTime;
   if (updating) {
     physicsTick();
   }
@@ -327,5 +331,5 @@ centering *= slowdown * slowdown;
 
 requestAnimationFrame(update);
 
-console.log(`parsed JSON to render in ${performance.now() - graphJsStartTime}`);
+document.getElementById("startupTime").innerText = Math.round(performance.now() - graphJsStartTime) * 0.001;
 document.getElementById("status").innerText = "Running";
