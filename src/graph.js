@@ -9,7 +9,6 @@ let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
-let showQuadTree = false;
 
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
@@ -21,12 +20,21 @@ let repulsion = 0.0000004;
 let centering = 0.004;
 const slowdown = 0.8;
 
-const maxAngularSizeToTreatAsPoint = 1;
+const maxAngularSizeToTreatAsPoint = 0.5;
 const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 100;
 
 const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI;
+
+// visuals
+const labelPaddingX = 0.006;
+const labelPaddingY = 0.006;
+let showQuadTree = false;
+
+const labelExtraWidth = 2 * labelPaddingX;
+const labelHeight = 2 * labelPaddingY + 0.006;
+const labelTextYOffset = labelPaddingY + 0.006;
 
 const newNode = (title) => ({
   x: Math.random(),
@@ -35,6 +43,7 @@ const newNode = (title) => ({
   dy: 0,
   title: title,
   numConnections: 0,
+  textWidth: ctx.measureText(title).width,
 });
 
 var loadRoamJSONGraph = (roam) => {
@@ -49,11 +58,7 @@ var loadRoamJSONGraph = (roam) => {
     if (block.string !== undefined) {
       // there must be a better way to get page links from json???
       // this doesn't see page links inside other page links
-      const pageRefRegexes = [
-        /\#([a-zA-Z]+)/g,
-        /\[\[([^\]]+)\]\]/g,
-        /^([a-zA-Z ]+)::/g,
-      ];
+      const pageRefRegexes = [/\#([a-zA-Z]+)/g, /\[\[([^\]]+)\]\]/g, /^([a-zA-Z ]+)::/g];
       pageRefRegexes.forEach((regex) => {
         const matches = block.string.matchAll(regex);
         for (let match of matches) {
@@ -77,18 +82,15 @@ var loadRoamJSONGraph = (roam) => {
   };
   roam.forEach((page) => {
     if (page.children !== undefined) {
-      page.children.forEach((block) =>
-        processBlock(pageTitleMap[page.title], block)
-      );
+      page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
     }
   });
 };
 
-const quadTreeNode = (x0, x1, y0, y1, kids = []) => ({
-  x0,
-  x1,
-  y0,
-  y1,
+const quadTreeNode = (xc, yc, r, kids = []) => ({
+  xc,
+  yc,
+  r,
   kids,
   tree: [],
   x: 0,
@@ -99,18 +101,18 @@ const pushQuadTree = (branch, depth) => {
   if (depth >= 20) {
     return branch;
   }
-  const midX = branch.x0 + (branch.x1 - branch.x0) * 0.5;
-  const midY = branch.y0 + (branch.y1 - branch.y0) * 0.5;
+  const newR = branch.r * 0.5;
   branch.tree = [
-    quadTreeNode(branch.x0, midX, branch.y0, midY),
-    quadTreeNode(midX, branch.x1, branch.y0, midY),
-    quadTreeNode(branch.x0, midX, midY, branch.y1),
-    quadTreeNode(midX, branch.x1, midY, branch.y1),
+    quadTreeNode(branch.xc - newR, branch.yc - newR, newR),
+    quadTreeNode(branch.xc + newR, branch.yc - newR, newR),
+    quadTreeNode(branch.xc - newR, branch.yc + newR, newR),
+    quadTreeNode(branch.xc + newR, branch.yc + newR, newR),
   ];
   let sumY = 0,
     sumX = 0;
   for (let node of branch.kids) {
-    branch.tree[(node.x > midX) + 2 * (node.y > midY)].kids.push(node);
+    // casting comparison to 0/1 to index array
+    branch.tree[(node.x > branch.xc) + 2 * (node.y > branch.yc)].kids.push(node);
     sumY += node.y;
     sumX += node.x;
   }
@@ -129,18 +131,18 @@ const pushQuadTree = (branch, depth) => {
 };
 
 var makeQuadTree = () => {
-  quadTree = quadTreeNode(-1, 2, -1, 2, nodes);
+  quadTree = quadTreeNode(0.5, 0.5, 2, nodes);
   pushQuadTree(quadTree, 0);
 };
 
 const repelNode = (node, node2) => {
-  const distSquared =
-    Math.abs((node.x - node2.x) * (node.x - node2.x) * (node.x - node2.x)) +
-    Math.abs((node.y - node2.y) * (node.y - node2.y) * (node.y - node2.y)) +
-    epsilon;
-  const factor = node2.kids ? node2.kids.length : 1;
-  node.dx += ((node.x - node2.x) / distSquared) * factor * repulsion;
-  node.dy += ((node.y - node2.y) / distSquared) * factor * repulsion;
+  const dx = node.x - node2.x;
+  const dy = node.y - node2.y;
+  const distanceMangledForPerformance = Math.abs(dx * dx * dx) + Math.abs(dy * dy * dy) + epsilon;
+  const mass = node2.kids ? node2.kids.length : 1;
+  const factor = (mass * repulsion) / distanceMangledForPerformance;
+  node.dx += dx * factor;
+  node.dy += dy * factor;
 };
 
 const repelNodeByQuadTree = (node, quadTree) => {
@@ -150,11 +152,8 @@ const repelNodeByQuadTree = (node, quadTree) => {
     repelNode(node, quadTree);
   } else {
     const ratio =
-      (quadTree.x1 - quadTree.x0) /
-      Math.sqrt(
-        (node.x - quadTree.x) * (node.x - quadTree.x) +
-          (node.y - quadTree.y) * (node.y - quadTree.y)
-      );
+      quadTree.r /
+      Math.sqrt((node.x - quadTree.x) * (node.x - quadTree.x) + (node.y - quadTree.y) * (node.y - quadTree.y));
     if (ratio < maxAngularSizeToTreatAsPoint) {
       repelNode(node, quadTree);
     } else {
@@ -165,9 +164,12 @@ const repelNodeByQuadTree = (node, quadTree) => {
 
 var move = () => {
   edges.forEach(([a, b]) => {
-    const distSquared = Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + epsilon;
-    const accX = ((a.x - b.x) * attraction) / distSquared;
-    const accY = ((a.y - b.y) * attraction) / distSquared;
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    const distSquared = Math.abs(dx) + Math.abs(dy) + epsilon;
+    const factor = attraction / distSquared;
+    const accX = dx * factor;
+    const accY = dy * factor;
     a.dx -= accX;
     b.dx += accX;
     a.dy -= accY;
@@ -179,13 +181,13 @@ var move = () => {
     repelNodeByQuadTree(node, quadTree);
   });
 
-  nodes.forEach((a) => {
-    a.x -= (a.x - 0.5) * centering;
-    a.y -= (a.y - 0.5) * centering;
-    a.x += a.dx;
-    a.y += a.dy;
-    a.dx *= friction;
-    a.dy *= friction;
+  nodes.forEach((node) => {
+    node.x -= (node.x - 0.5) * centering;
+    node.y -= (node.y - 0.5) * centering;
+    node.x += node.dx;
+    node.y += node.dy;
+    node.dx *= friction;
+    node.dy *= friction;
   });
 };
 
@@ -212,12 +214,7 @@ var applyViewChanges = () => {
 
 var renderQuadTree = (quadTree) => {
   if (quadTree && quadTree.tree) {
-    ctx.strokeRect(
-      quadTree.x0,
-      quadTree.y0,
-      quadTree.x1 - quadTree.x0,
-      quadTree.y1 - quadTree.y0
-    );
+    ctx.strokeRect(quadTree.xc - quadTree.r, quadTree.yc - quadTree.r, quadTree.r * 2, quadTree.r * 2);
     quadTree.tree.forEach(renderQuadTree);
   }
 };
@@ -232,32 +229,23 @@ var render = () => {
   // draw edge lines first so they go underneath nodes
   ctx.strokeStyle = "#bbbbbb";
   ctx.lineWidth = 0.002;
-  edges.forEach(([node, endNode]) => {
+  edges.forEach(([startNode, endNode]) => {
     ctx.beginPath();
-    ctx.moveTo(node.x, node.y);
+    ctx.moveTo(startNode.x, startNode.y);
     ctx.lineTo(endNode.x, endNode.y);
     ctx.stroke();
   });
 
-  // // draw nodes
-  // ctx.fillStyle = "#555555";
-  // nodes.forEach((node) => {
-  //   ctx.beginPath();
-  //   const radius = 0.007 + node.numConnections * 0.0001;
-  //   ctx.arc(node.x, node.y, radius, 0, twoPI, false);
-  //   ctx.fill();
-  // });
-
   // draw node label backgrounds
   ctx.fillStyle = "#eeeeee";
   nodes.forEach((node) => {
-    ctx.fillRect(node.x - 0.05, node.y, 0.1, 0.012);
+    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
   });
+
   // draw node labels
-  ctx.font = `0.01px Verdana`;
   ctx.fillStyle = "#000000";
   nodes.forEach((node) => {
-    ctx.fillText(node.title, node.x - 0.045, node.y + 0.01, 20);
+    ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
   });
 
   if (showQuadTree) {
@@ -291,7 +279,9 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
-ctx.scale(canvas.height, canvas.height);
+
+applyViewChanges();
+ctx.font = `0.01px Verdana`;
 
 canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
@@ -322,15 +312,14 @@ canvas.addEventListener("keypress", (event) => {
 });
 
 canvas.addEventListener("wheel", (event) => {
-  const scaling = (event.deltaY / 100) * zoomRatioPerMouseWheelTick;
+  const scaling = event.deltaY * 0.01 * zoomRatioPerMouseWheelTick;
   // scaling factor from new scale to old scale
   const inverseScaling = 1 / (1 + scaling) - 1;
   const fracX = mousePosition.x / canvas.width;
   const fracY = mousePosition.y / canvas.height;
   const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
   const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
-  canvasOffsetX +=
-    canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
+  canvasOffsetX += canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
   canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
   canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
