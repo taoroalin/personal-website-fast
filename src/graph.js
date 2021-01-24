@@ -327,12 +327,12 @@ canvas.addEventListener("wheel", (event) => {
   const scaling = event.deltaY * 0.01 * zoomRatioPerMouseWheelTick;
   // scaling factor from new scale to old scale
   const inverseScaling = 1 / (1 + scaling) - 1;
-  const fracX = mousePosition.x / canvas.width;
-  const fracY = mousePosition.y / canvas.height;
+  // const fracX = mousePosition.x / canvas.width;
+  // const fracY = mousePosition.y / canvas.height;
   const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
   const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
-  canvasOffsetX += canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
-  canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
+  // canvasOffsetX += canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
+  // canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
   canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
   somethingChangedThisFrame = true;
