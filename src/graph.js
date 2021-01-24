@@ -9,10 +9,12 @@ let quadTree = [];
 let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
-let updating = true;
+let updating = false;
 
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
+
+let userInputHappenedThisFrame = false;
 
 // Constants
 let attraction = 0.004;
@@ -21,7 +23,7 @@ let repulsion = 0.0000004;
 let centering = 0.004;
 const slowdown = 0.8;
 
-const maxSizeRatioToApproximate = 0.5;
+let maxSizeRatioToApproximate = 0.5;
 const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 200;
 
@@ -89,6 +91,10 @@ var loadRoamJSONGraph = (roam) => {
   });
 };
 
+// This is the start of the Barnes-Hut n-body force approximation.
+// It works by partitiioning space into a tree structure and
+// applying forces to tree roots instead of nodes / leaves
+// https://en.wikipedia.org/wiki/Barnes%E2%80%93Hut_simulation
 const quadTreeNode = (x, y, r, kids = []) => ({
   x,
   y,
@@ -163,7 +169,6 @@ const repelNodeByQuadTree = (node, quadTree) => {
 };
 
 var physicsTick = () => {
-  makeQuadTree();
   edges.forEach(([a, b]) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -177,6 +182,7 @@ var physicsTick = () => {
     b.dy += accY;
   });
 
+  makeQuadTree();
   nodes.forEach((node) => {
     repelNodeByQuadTree(node, quadTree);
   });
@@ -255,13 +261,17 @@ var render = () => {
 
 var update = () => {
   const frameStatTime = performance.now();
-  document.getElementById("fps").innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
+  fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
   lastFrameStartTime = frameStatTime;
   if (updating) {
+    applyViewChanges();
+    render();
     physicsTick();
+  } else if (userInputHappenedThisFrame) {
+    applyViewChanges();
+    render();
   }
-  applyViewChanges();
-  render();
+  userInputHappenedThisFrame = false;
   requestAnimationFrame(update);
 };
 
@@ -270,9 +280,14 @@ profileNewTopLevelFunctions();
 canvas = document.getElementById("graph-canvas");
 ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// fit to whole window except for text at top
+const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop);
+console.log(fromTop);
+canvas.height = window.innerHeight - fromTop;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
+
+const fpsCounterElement = document.getElementById("fps");
 
 applyViewChanges();
 ctx.font = `0.01px Verdana`;
@@ -280,6 +295,9 @@ ctx.font = `0.01px Verdana`;
 canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
   mousePosition.y = event.offsetY;
+  if (mousePosition.prevX) {
+    userInputHappenedThisFrame = true;
+  }
 });
 
 // whether currently dragging is controlled by whether prev position is nonzero
@@ -287,11 +305,13 @@ canvas.addEventListener("mousemove", (event) => {
 canvas.addEventListener("mousedown", (event) => {
   mousePosition.prevX = event.offsetX;
   mousePosition.prevY = event.offsetY;
+  userInputHappenedThisFrame = true;
 });
 
 const stopDrag = (event) => {
   mousePosition.prevX = 0;
   mousePosition.prevY = 0;
+  userInputHappenedThisFrame = true;
 };
 
 canvas.addEventListener("mouseup", stopDrag);
@@ -303,6 +323,7 @@ canvas.addEventListener("keypress", (event) => {
     updating = !updating;
     event.stopPropagation();
     event.preventDefault();
+    userInputHappenedThisFrame = true;
   }
 });
 
@@ -318,6 +339,7 @@ canvas.addEventListener("wheel", (event) => {
   canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
   canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
+  userInputHappenedThisFrame = true;
 });
 
 loadRoamJSONGraph(roamJSON);
@@ -328,6 +350,10 @@ for (let i = 0; i < simulationStepsBeforeRender; i++) {
 attraction *= slowdown * slowdown;
 friction *= slowdown * slowdown;
 centering *= slowdown * slowdown;
+maxSizeRatioToApproximate *= slowdown * slowdown;
+
+applyViewChanges();
+render();
 
 requestAnimationFrame(update);
 
