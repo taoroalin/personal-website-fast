@@ -1,5 +1,5 @@
-const graphJsStartTime = performance.now();
-let lastFrameStartTime = 0;
+const graphJsStartTime = performance.now(); // measure when graph.js starts executing
+let lastFrameStartTime = 0; // for counting framerate
 
 // Mutable state
 let nodes = [];
@@ -14,7 +14,7 @@ let updating = false;
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
 
-let userInputHappenedThisFrame = false;
+let somethingChangedThisFrame = false;
 
 // Constants
 let attraction = 0.004;
@@ -28,9 +28,9 @@ const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 200;
 
 const epsilon = 0.0000001;
-const twoPI = 2 * Math.PI;
+const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi once instead of in loop
 
-// visuals
+// graphics constants
 const labelPaddingX = 0.003;
 const labelPaddingY = 0.003;
 let showQuadTree = false;
@@ -46,6 +46,7 @@ const newNode = (title) => ({
   dy: 0,
   title: title,
   numConnections: 0,
+  // measure text width up front, not in loop. This requires ctx font to be already set.
   textWidth: ctx.measureText(title).width,
 });
 
@@ -55,7 +56,6 @@ var loadRoamJSONGraph = (roam) => {
   const pageTitleMap = {};
   roam.forEach((page, i) => (pageTitleMap[page.title] = i));
   nodes = roam.map((page) => newNode(page.title));
-
   edges = [];
   // only count unique edges, keep track with "hash set"
   const edgeHashSet = {};
@@ -103,6 +103,7 @@ const quadTreeNode = (x, y, r, kids = []) => ({
   tree: [],
 });
 
+// move all kids in quadtree to child quadtrees, recursively
 const pushQuadTree = (branch, depth) => {
   if (depth >= 20) {
     return branch;
@@ -267,11 +268,11 @@ var update = () => {
     applyViewChanges();
     render();
     physicsTick();
-  } else if (userInputHappenedThisFrame) {
+  } else if (somethingChangedThisFrame) {
     applyViewChanges();
     render();
   }
-  userInputHappenedThisFrame = false;
+  somethingChangedThisFrame = false;
   requestAnimationFrame(update);
 };
 
@@ -296,7 +297,7 @@ canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
   mousePosition.y = event.offsetY;
   if (mousePosition.prevX) {
-    userInputHappenedThisFrame = true;
+    somethingChangedThisFrame = true;
   }
 });
 
@@ -305,13 +306,13 @@ canvas.addEventListener("mousemove", (event) => {
 canvas.addEventListener("mousedown", (event) => {
   mousePosition.prevX = event.offsetX;
   mousePosition.prevY = event.offsetY;
-  userInputHappenedThisFrame = true;
+  somethingChangedThisFrame = true;
 });
 
 const stopDrag = (event) => {
   mousePosition.prevX = 0;
   mousePosition.prevY = 0;
-  userInputHappenedThisFrame = true;
+  somethingChangedThisFrame = true;
 };
 
 canvas.addEventListener("mouseup", stopDrag);
@@ -323,7 +324,7 @@ canvas.addEventListener("keypress", (event) => {
     updating = !updating;
     event.stopPropagation();
     event.preventDefault();
-    userInputHappenedThisFrame = true;
+    somethingChangedThisFrame = true;
   }
 });
 
@@ -339,7 +340,7 @@ canvas.addEventListener("wheel", (event) => {
   canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
   canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
-  userInputHappenedThisFrame = true;
+  somethingChangedThisFrame = true;
 });
 
 loadRoamJSONGraph(roamJSON);
