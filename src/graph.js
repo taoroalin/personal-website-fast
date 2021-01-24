@@ -23,7 +23,7 @@ let attraction = 0.004;
 let friction = 0.9;
 let repulsion = 0.0000004;
 let centering = 0.004;
-const slowdown = 0.8;
+const slowdown = 0.65;
 
 let maxSizeRatioToApproximate = 0.5;
 const simulationStepsBeforeRender = 200;
@@ -78,30 +78,32 @@ const pushQuadTree = (branch, depth) => {
   }
   const newR = branch.r * 0.5;
   branch.tree = [
-    quadTreeNode(branch.x - newR, branch.y - newR, newR),
-    quadTreeNode(branch.x + newR, branch.y - newR, newR),
-    quadTreeNode(branch.x - newR, branch.y + newR, newR),
-    quadTreeNode(branch.x + newR, branch.y + newR, newR),
+    quadTreeNode(branch.x - newR, branch.y - newR, newR), // top left
+    quadTreeNode(branch.x + newR, branch.y - newR, newR), // top right
+    quadTreeNode(branch.x - newR, branch.y + newR, newR), // bottom left
+    quadTreeNode(branch.x + newR, branch.y + newR, newR), // bottom right
   ];
   let sumY = 0,
     sumX = 0;
   for (let node of branch.kids) {
-    // casting comparison to 0/1 to index array
+    // casting boolean to 0/1 to index array
     branch.tree[(node.x > branch.x) + 2 * (node.y > branch.y)].kids.push(node);
     sumY += node.y;
     sumX += node.x;
+    branch.mass += node.mass;
   }
   branch.x = sumX / branch.kids.length;
   branch.y = sumY / branch.kids.length;
-  branch.mass = branch.kids.length;
   for (let i = 0; i < 4; i++) {
     const len = branch.tree[i].kids.length;
-    if (len === 0) {
-      branch.tree[i] = undefined;
-    } else if (len === 1) {
-      branch.tree[i] = branch.tree[i].kids[0];
-    } else {
+    if (len > 1) {
+      // if there are multiple nodes in child tree, then push that child tree
       pushQuadTree(branch.tree[i], depth + 1);
+    } else if (len === 0) {
+      branch.tree[i] = undefined;
+    } else {
+      // if child tree has one node, replace the tree with the node
+      branch.tree[i] = branch.tree[i].kids[0];
     }
   }
 };
@@ -123,7 +125,7 @@ const repelNodeByQuadTree = (node, quadTree) => {
     // if node is leaf
     quadTree.numConnections !== undefined
   ) {
-    // this looks kinda like distance, right?
+    // Use 'approximation' to square root that's faster than Math.sqrt
     const distanceMangledForPerformance = Math.abs(dx * dx * dx) + Math.abs(dy * dy * dy) + epsilon;
     const factor = (quadTree.mass * repulsion) / distanceMangledForPerformance;
     node.dx += dx * factor;
@@ -138,8 +140,9 @@ var physicsTick = () => {
   edges.forEach(([a, b]) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
-    const distSquared = Math.abs(dx) + Math.abs(dy) + epsilon;
-    const factor = attraction / distSquared;
+    // Use 'approximation' to square root that's faster than Math.sqrt
+    const distanceMangledForPerformance = Math.abs(dx) + Math.abs(dy) + epsilon;
+    const factor = attraction / distanceMangledForPerformance;
     const accX = dx * factor;
     const accY = dy * factor;
     a.dx -= accX;
@@ -232,16 +235,15 @@ var render = () => {
 
 // This is called once per animation frame
 var update = () => {
-  const frameStatTime = performance.now();
-  fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
-  lastFrameStartTime = frameStatTime;
   if (updating) {
-    applyViewChanges();
-    render();
     physicsTick();
-  } else if (somethingChangedThisFrame) {
+  }
+  if (updating || somethingChangedThisFrame) {
     applyViewChanges();
     render();
+    const frameStatTime = performance.now();
+    fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
+    lastFrameStartTime = frameStatTime;
   }
   somethingChangedThisFrame = false;
   requestAnimationFrame(update);
@@ -303,14 +305,8 @@ canvas.addEventListener("keypress", (event) => {
 
 canvas.addEventListener("wheel", (event) => {
   const scaling = event.deltaY * 0.01 * zoomRatioPerMouseWheelTick;
-  // scaling factor from new scale to old scale
-  const inverseScaling = 1 / (1 + scaling) - 1;
-  // const fracX = mousePosition.x / canvas.width;
-  // const fracY = mousePosition.y / canvas.height;
-  const newCanvasInnerHeight = canvasInnerHeight * (1 + inverseScaling);
-  const newCanvasInnerWidth = canvasInnerWidth * (1 + inverseScaling);
-  // canvasOffsetX += canvas.width - canvasInnerWidth * (mousePosition.x / canvas.width);
-  // canvasOffsetY += canvasInnerHeight * (mousePosition.y / canvas.height);
+  const newCanvasInnerHeight = canvasInnerHeight * (1 - scaling);
+  const newCanvasInnerWidth = canvasInnerWidth * (1 - scaling);
   canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
   somethingChangedThisFrame = true;
@@ -323,8 +319,11 @@ const pageTitleMap = {};
 roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
 nodes = roamJSON.map((page) => newNode(page.title));
 edges = [];
+
 // only count unique edges, keep track with "hash set"
-const edgeHashSet = {};
+const edgeHashSet = {}; // hash is bit concat id numbers
+
+// Recursive function to find page links in a block
 const processBlock = (pageId, block) => {
   if (block.string !== undefined) {
     // there must be a better way to get page links from json???
@@ -335,7 +334,7 @@ const processBlock = (pageId, block) => {
       for (let match of matches) {
         const targetPageId = pageTitleMap[match[1]];
         if (targetPageId !== undefined) {
-          const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
+          const edgeHash = pageId + targetPageId * 1000000; // hash is bit concat id numbers
           if (edgeHashSet[edgeHash] === undefined) {
             edgeHashSet[edgeHash] = true;
             nodes[pageId].numConnections += 1;
@@ -346,10 +345,13 @@ const processBlock = (pageId, block) => {
       }
     });
   }
+
   if (block.children !== undefined) {
     block.children.forEach((block) => processBlock(pageId, block));
   }
 };
+
+// Add edges in all blocks in all pages
 roamJSON.forEach((page) => {
   if (page.children !== undefined) {
     page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
@@ -362,10 +364,10 @@ for (let i = 0; i < simulationStepsBeforeRender; i++) {
 }
 
 // slow down simulation before rendering
-attraction *= slowdown * slowdown;
-friction *= slowdown * slowdown;
-centering *= slowdown * slowdown;
-maxSizeRatioToApproximate *= slowdown * slowdown;
+attraction *= slowdown;
+friction *= slowdown;
+centering *= slowdown;
+maxSizeRatioToApproximate *= slowdown;
 
 applyViewChanges();
 render();
