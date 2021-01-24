@@ -5,8 +5,6 @@ let lastFrameStartTime = 0; // for counting framerate
 // for development. Will switch these to const and use a more systematic performance tracker later
 
 // --------------- Mutable State ----------------
-let nodes = [];
-let edges = [];
 let quadTree = [];
 
 let canvas, ctx;
@@ -315,48 +313,53 @@ canvas.addEventListener("wheel", (event) => {
 // Create graph from JSON exported by Roam.
 // JSON is in a global constant called roamJSON from the file help-roam-json for performance
 // (as opposed to fetching that here)
-const pageTitleMap = {};
-roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
-nodes = roamJSON.map((page) => newNode(page.title));
-edges = [];
+const loadRomaJSON = () => {
+  const pageTitleMap = {};
+  roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
+  nodes = roamJSON.map((page) => newNode(page.title));
+  edges = [];
 
-// only count unique edges, keep track with "hash set"
-const edgeHashSet = {}; // hash is bit concat id numbers
+  // only count unique edges, keep track with "hash set"
+  const edgeHashSet = {}; // hash is bit concat id numbers
 
-// Recursive function to find page links in a block
-const processBlock = (pageId, block) => {
-  if (block.string !== undefined) {
-    // there must be a better way to get page links from json???
-    // this doesn't see page links inside other page links
-    const pageRefRegexes = [/\#([a-zA-Z]+)/g, /\[\[([^\]]+)\]\]/g, /^([a-zA-Z ]+)::/g];
-    pageRefRegexes.forEach((regex) => {
-      const matches = block.string.matchAll(regex);
-      for (let match of matches) {
-        const targetPageId = pageTitleMap[match[1]];
-        if (targetPageId !== undefined) {
-          const edgeHash = pageId + targetPageId * 1000000; // hash is bit concat id numbers
-          if (edgeHashSet[edgeHash] === undefined) {
-            edgeHashSet[edgeHash] = true;
-            nodes[pageId].numConnections += 1;
-            nodes[targetPageId].numConnections += 1;
-            edges.push([nodes[pageId], nodes[targetPageId]]);
+  // Recursive function to find page links in a block
+  const processBlock = (pageId, block) => {
+    if (block.string !== undefined) {
+      // there must be a better way to get page links from json???
+      // this doesn't see page links inside other page links
+      const pageRefRegexes = [/\#([a-zA-Z]+)/g, /\[\[([^\]]+)\]\]/g, /^([a-zA-Z ]+)::/g];
+      pageRefRegexes.forEach((regex) => {
+        const matches = block.string.matchAll(regex);
+        for (let match of matches) {
+          const targetPageId = pageTitleMap[match[1]];
+          if (targetPageId !== undefined) {
+            const edgeHash = pageId + targetPageId * 1000000; // hash is bit concat id numbers
+            if (edgeHashSet[edgeHash] === undefined) {
+              edgeHashSet[edgeHash] = true;
+              nodes[pageId].numConnections += 1;
+              nodes[targetPageId].numConnections += 1;
+              edges.push([nodes[pageId], nodes[targetPageId]]);
+              edgeIdxs.push([pageId, targetPageId]);
+            }
           }
         }
-      }
-    });
-  }
+      });
+    }
 
-  if (block.children !== undefined) {
-    block.children.forEach((block) => processBlock(pageId, block));
-  }
+    if (block.children !== undefined) {
+      block.children.forEach((block) => processBlock(pageId, block));
+    }
+  };
+
+  // Add edges in all blocks in all pages
+  roamJSON.forEach((page) => {
+    if (page.children !== undefined) {
+      page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
+    }
+  });
 };
 
-// Add edges in all blocks in all pages
-roamJSON.forEach((page) => {
-  if (page.children !== undefined) {
-    page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
-  }
-});
+edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
