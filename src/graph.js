@@ -22,7 +22,7 @@ const slowdown = 0.8;
 
 const maxSizeRatioToApproximate = 0.5;
 const zoomRatioPerMouseWheelTick = 0.15;
-const simulationStepsBeforeRender = 100;
+const simulationStepsBeforeRender = 200;
 
 const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI;
@@ -161,7 +161,8 @@ const repelNodeByQuadTree = (node, quadTree) => {
   }
 };
 
-var move = () => {
+var physicsTick = () => {
+  makeQuadTree();
   edges.forEach(([a, b]) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -251,16 +252,9 @@ var render = () => {
   }
 };
 
-var physicsUpdate = () => {
-  makeQuadTree();
-  move();
-  move();
-  move();
-};
-
 var update = () => {
   if (updating) {
-    physicsUpdate();
+    physicsTick();
   }
   applyViewChanges();
   render();
@@ -325,7 +319,7 @@ canvas.addEventListener("wheel", (event) => {
 loadRoamJSONGraph(roamJSON);
 
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
-  physicsUpdate();
+  physicsTick();
 }
 attraction *= slowdown * slowdown;
 friction *= slowdown * slowdown;
