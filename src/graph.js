@@ -9,7 +9,7 @@ let quadTree = [];
 let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
-let updating = false;
+let updating = true;
 
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
@@ -355,3 +355,5 @@ requestAnimationFrame(update);
 
 document.getElementById("startupTime").innerText = Math.round(performance.now() - graphJsStartTime) * 0.001;
 document.getElementById("status").innerText = "Running";
+
+setTimeout(() => (updating = false), 5000);
