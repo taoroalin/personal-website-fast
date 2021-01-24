@@ -1,5 +1,6 @@
 const graphJsStartTime = performance.now(); // measure when graph.js starts executing
 let lastFrameStartTime = 0; // for counting framerate
+const useRoamJSON = false;
 
 // I'm using a script to automatically track performance on all functions I define using `var`
 // for development. Will switch these to const and use a more systematic performance tracker later
@@ -359,7 +360,12 @@ const loadRomaJSON = () => {
   });
 };
 
-edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
+if (useRoamJSON) {
+  loadRomaJSON();
+} else {
+  // store edges as references instead of idx's for performance
+  edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
+}
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
