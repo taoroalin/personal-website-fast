@@ -88,14 +88,12 @@ var loadRoamJSONGraph = (roam) => {
   });
 };
 
-const quadTreeNode = (xc, yc, r, kids = []) => ({
-  xc,
-  yc,
+const quadTreeNode = (x, y, r, kids = []) => ({
+  x,
+  y,
   r,
   kids,
   tree: [],
-  x: 0,
-  y: 0,
 });
 
 const pushQuadTree = (branch, depth) => {
@@ -104,16 +102,16 @@ const pushQuadTree = (branch, depth) => {
   }
   const newR = branch.r * 0.5;
   branch.tree = [
-    quadTreeNode(branch.xc - newR, branch.yc - newR, newR),
-    quadTreeNode(branch.xc + newR, branch.yc - newR, newR),
-    quadTreeNode(branch.xc - newR, branch.yc + newR, newR),
-    quadTreeNode(branch.xc + newR, branch.yc + newR, newR),
+    quadTreeNode(branch.x - newR, branch.y - newR, newR),
+    quadTreeNode(branch.x + newR, branch.y - newR, newR),
+    quadTreeNode(branch.x - newR, branch.y + newR, newR),
+    quadTreeNode(branch.x + newR, branch.y + newR, newR),
   ];
   let sumY = 0,
     sumX = 0;
   for (let node of branch.kids) {
     // casting comparison to 0/1 to index array
-    branch.tree[(node.x > branch.xc) + 2 * (node.y > branch.yc)].kids.push(node);
+    branch.tree[(node.x > branch.x) + 2 * (node.y > branch.y)].kids.push(node);
     sumY += node.y;
     sumX += node.x;
   }
@@ -177,7 +175,6 @@ var move = () => {
     b.dy += accY;
   });
 
-  // Barnes-hut repulsion
   nodes.forEach((node) => {
     repelNodeByQuadTree(node, quadTree);
   });
@@ -193,10 +190,8 @@ var move = () => {
 };
 
 var applyViewChanges = () => {
-  /**
-   * Pan by the difference between mouse x and mouse x last frame
-   * not last mouseMove event
-   */
+  // Pan by the difference between mouse x and mouse x last frame
+  // not last mouseMove event
   if (mousePosition.prevX !== 0) {
     canvasOffsetY += mousePosition.y - mousePosition.prevY;
     canvasOffsetX += mousePosition.x - mousePosition.prevX;
@@ -204,7 +199,7 @@ var applyViewChanges = () => {
     mousePosition.prevY = mousePosition.y;
   }
   ctx.setTransform(
-    canvasInnerHeight,
+    canvasInnerHeight, // scale width, we set this scale the same as the height to avoid stretching
     0, // slant x
     0, // slant y
     canvasInnerHeight,
@@ -215,7 +210,7 @@ var applyViewChanges = () => {
 
 var renderQuadTree = (quadTree) => {
   if (quadTree && quadTree.tree) {
-    ctx.strokeRect(quadTree.xc - quadTree.r, quadTree.yc - quadTree.r, quadTree.r * 2, quadTree.r * 2);
+    ctx.strokeRect(quadTree.x - quadTree.r, quadTree.y - quadTree.r, quadTree.r * 2, quadTree.r * 2);
     quadTree.tree.forEach(renderQuadTree);
   }
 };
@@ -309,6 +304,7 @@ canvas.addEventListener("keypress", (event) => {
   if (event.code == "Space") {
     updating = !updating;
     event.stopPropagation();
+    event.preventDefault();
   }
 });
 
