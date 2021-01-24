@@ -1,7 +1,10 @@
 const graphJsStartTime = performance.now(); // measure when graph.js starts executing
 let lastFrameStartTime = 0; // for counting framerate
 
-// Mutable state
+// I'm using a script to automatically track performance on all functions I define using `var`
+// for development. Will switch these to const and use a more systematic performance tracker later
+
+// --------------- Mutable State ----------------
 let nodes = [];
 let edges = [];
 let quadTree = [];
@@ -11,12 +14,11 @@ let canvas, ctx;
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
 
-let canvasOffsetX = 0;
-let canvasOffsetY = 0;
-
 let somethingChangedThisFrame = false;
 
-// Constants
+// ----------- Constants --------------------
+
+// Physics constants
 let attraction = 0.004;
 let friction = 0.9;
 let repulsion = 0.0000004;
@@ -24,21 +26,24 @@ let centering = 0.004;
 const slowdown = 0.8;
 
 let maxSizeRatioToApproximate = 0.5;
-const zoomRatioPerMouseWheelTick = 0.15;
 const simulationStepsBeforeRender = 200;
 
+// Math constants
 const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi once instead of in loop
 
-// graphics constants
+// UI constants
+const zoomRatioPerMouseWheelTick = 0.15;
 const labelPaddingX = 0.003;
 const labelPaddingY = 0.003;
 let showQuadTree = false;
 
+// precomputing often-used UI values
 const labelExtraWidth = 2 * labelPaddingX;
 const labelHeight = 2 * labelPaddingY + 0.006;
 const labelTextYOffset = labelPaddingY + 0.006;
 
+// create graph node
 const newNode = (title) => ({
   x: Math.random(),
   y: Math.random(),
@@ -51,50 +56,10 @@ const newNode = (title) => ({
   mass: 1,
 });
 
-// I'm using a script to automatically track performance on all functions I define using `var`
-// for development. Will switch to const for production
-var loadRoamJSONGraph = (roam) => {
-  const pageTitleMap = {};
-  roam.forEach((page, i) => (pageTitleMap[page.title] = i));
-  nodes = roam.map((page) => newNode(page.title));
-  edges = [];
-  // only count unique edges, keep track with "hash set"
-  const edgeHashSet = {};
-  const processBlock = (pageId, block) => {
-    if (block.string !== undefined) {
-      // there must be a better way to get page links from json???
-      // this doesn't see page links inside other page links
-      const pageRefRegexes = [/\#([a-zA-Z]+)/g, /\[\[([^\]]+)\]\]/g, /^([a-zA-Z ]+)::/g];
-      pageRefRegexes.forEach((regex) => {
-        const matches = block.string.matchAll(regex);
-        for (let match of matches) {
-          const targetPageId = pageTitleMap[match[1]];
-          if (targetPageId !== undefined) {
-            const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
-            if (edgeHashSet[edgeHash] === undefined) {
-              edgeHashSet[edgeHash] = true;
-              nodes[pageId].numConnections += 1;
-              nodes[targetPageId].numConnections += 1;
-              edges.push([nodes[pageId], nodes[targetPageId]]);
-            }
-          }
-        }
-      });
-    }
-    if (block.children !== undefined) {
-      block.children.forEach((block) => processBlock(pageId, block));
-    }
-  };
-  roam.forEach((page) => {
-    if (page.children !== undefined) {
-      page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
-    }
-  });
-};
-
 // This is the start of the Barnes-Hut n-body force approximation.
 // It works by partitiioning space into a tree structure and
 // applying forces to tree roots instead of nodes / leaves
+// The quadTree nodes have nothing to do conceptually with the graph - they're just for optimization
 // https://en.wikipedia.org/wiki/Barnes%E2%80%93Hut_simulation
 const quadTreeNode = (x, y, r, kids = []) => ({
   x,
@@ -108,7 +73,8 @@ const quadTreeNode = (x, y, r, kids = []) => ({
 // move all kids in quadtree to child quadtrees, recursively
 const pushQuadTree = (branch, depth) => {
   if (depth >= 20) {
-    return branch;
+    // Abort recursion if we've gone too deep
+    return;
   }
   const newR = branch.r * 0.5;
   branch.tree = [
@@ -168,6 +134,7 @@ const repelNodeByQuadTree = (node, quadTree) => {
 };
 
 var physicsTick = () => {
+  // Attract nodes on edges together
   edges.forEach(([a, b]) => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
@@ -181,14 +148,20 @@ var physicsTick = () => {
     b.dy += accY;
   });
 
+  // Repel all nodes apart
   makeQuadTree();
   nodes.forEach((node) => repelNodeByQuadTree(node, quadTree));
 
   nodes.forEach((node) => {
+    // Apply centering
     node.x -= (node.x - 0.5) * centering;
     node.y -= (node.y - 0.5) * centering;
+
+    // 'tick' position forward by velocity
     node.x += node.dx;
     node.y += node.dy;
+
+    // Slow down nodes by friction ratio
     node.dx *= friction;
     node.dy *= friction;
   });
@@ -213,6 +186,7 @@ var applyViewChanges = () => {
   );
 };
 
+// Debug: show quadTree boxes
 var renderQuadTree = (quadTree) => {
   if (quadTree && quadTree.tree) {
     ctx.strokeRect(quadTree.x - quadTree.r, quadTree.y - quadTree.r, quadTree.r * 2, quadTree.r * 2);
@@ -228,7 +202,7 @@ var render = () => {
   ctx.restore();
 
   // draw edge lines first so they go underneath nodes
-  ctx.strokeStyle = "#bbbbbb";
+  ctx.strokeStyle = "#bbbbbb"; // Set canvas state outside of loop for performance
   ctx.lineWidth = 0.002;
   edges.forEach(([startNode, endNode]) => {
     ctx.beginPath();
@@ -256,6 +230,7 @@ var render = () => {
   }
 };
 
+// This is called once per animation frame
 var update = () => {
   const frameStatTime = performance.now();
   fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
@@ -274,6 +249,7 @@ var update = () => {
 
 profileNewTopLevelFunctions();
 
+// Setup canvas
 canvas = document.getElementById("graph-canvas");
 ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
@@ -282,6 +258,8 @@ const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || docu
 canvas.height = window.innerHeight - fromTop;
 let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
+let canvasOffsetX = 0;
+let canvasOffsetY = 0;
 
 const fpsCounterElement = document.getElementById("fps");
 
@@ -338,11 +316,52 @@ canvas.addEventListener("wheel", (event) => {
   somethingChangedThisFrame = true;
 });
 
-loadRoamJSONGraph(roamJSON);
+// Create graph from JSON exported by Roam.
+// JSON is in a global constant called roamJSON from the file help-roam-json for performance
+// (as opposed to fetching that here)
+const pageTitleMap = {};
+roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
+nodes = roamJSON.map((page) => newNode(page.title));
+edges = [];
+// only count unique edges, keep track with "hash set"
+const edgeHashSet = {};
+const processBlock = (pageId, block) => {
+  if (block.string !== undefined) {
+    // there must be a better way to get page links from json???
+    // this doesn't see page links inside other page links
+    const pageRefRegexes = [/\#([a-zA-Z]+)/g, /\[\[([^\]]+)\]\]/g, /^([a-zA-Z ]+)::/g];
+    pageRefRegexes.forEach((regex) => {
+      const matches = block.string.matchAll(regex);
+      for (let match of matches) {
+        const targetPageId = pageTitleMap[match[1]];
+        if (targetPageId !== undefined) {
+          const edgeHash = pageId + targetPageId * 1000000; // bit concat id numbers
+          if (edgeHashSet[edgeHash] === undefined) {
+            edgeHashSet[edgeHash] = true;
+            nodes[pageId].numConnections += 1;
+            nodes[targetPageId].numConnections += 1;
+            edges.push([nodes[pageId], nodes[targetPageId]]);
+          }
+        }
+      }
+    });
+  }
+  if (block.children !== undefined) {
+    block.children.forEach((block) => processBlock(pageId, block));
+  }
+};
+roamJSON.forEach((page) => {
+  if (page.children !== undefined) {
+    page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
+  }
+});
 
+// simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
   physicsTick();
 }
+
+// slow down simulation before rendering
 attraction *= slowdown * slowdown;
 friction *= slowdown * slowdown;
 centering *= slowdown * slowdown;
