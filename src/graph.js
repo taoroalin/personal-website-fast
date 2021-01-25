@@ -7,6 +7,8 @@ const useRoamJSON = false;
 
 let canvas, ctx;
 
+let clickedNode = null;
+let clickedNodeAdjacent = [];
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
 
@@ -190,9 +192,9 @@ var applyViewChanges = () => {
     canvasInnerHeight, // scale width, we set this scale the same as the height to avoid stretching
     0, // slant x
     0, // slant y
-    canvasInnerHeight,
-    canvasOffsetX,
-    canvasOffsetY
+    canvasInnerHeight, // scale height
+    canvasOffsetX, // offset x
+    canvasOffsetY // offset y
   );
 };
 
@@ -243,6 +245,42 @@ var render = () => {
   }
   renderNodeBatch(numBatches * nodeRenderBatchSize, nodes.length);
 
+  if (clickedNode !== null) {
+    // draw edges and connected nodes from clicked node
+    ctx.strokeStyle = "#9999ff"; // Set canvas state outside of loop for performance
+    ctx.lineWidth = 0.003;
+    clickedNodeAdjacent.forEach((adjacent) => {
+      ctx.beginPath();
+      ctx.moveTo(clickedNode.x, clickedNode.y);
+      ctx.lineTo(adjacent.x, adjacent.y);
+      ctx.stroke();
+    });
+    clickedNodeAdjacent.forEach((adjacent) => {
+      // draw adjacent node label
+      ctx.fillStyle = "#9999ff";
+      ctx.fillRect(
+        adjacent.x - adjacent.textWidth * 0.5 - labelPaddingX,
+        adjacent.y,
+        adjacent.textWidth + labelExtraWidth,
+        labelHeight
+      );
+      // draw all node labels at once
+      ctx.fillStyle = "#000000";
+      ctx.fillText(adjacent.title, adjacent.x - adjacent.textWidth * 0.5, adjacent.y + labelTextYOffset);
+    });
+    // draw clicked node label
+    ctx.fillStyle = "#3333ff";
+    ctx.fillRect(
+      clickedNode.x - clickedNode.textWidth * 0.5 - labelPaddingX,
+      clickedNode.y,
+      clickedNode.textWidth + labelExtraWidth,
+      labelHeight
+    );
+    // draw all node labels at once
+    ctx.fillStyle = "#000000";
+    ctx.fillText(clickedNode.title, clickedNode.x - clickedNode.textWidth * 0.5, clickedNode.y + labelTextYOffset);
+  }
+
   if (debugShowQuadTree) {
     ctx.strokeStyle = "#00ff00";
     ctx.lineWidth = 0.0005;
@@ -255,18 +293,16 @@ var update = () => {
   if (updating) {
     physicsTick();
   }
-  const frameStatTime = performance.now();
+  const frameStartTime = performance.now();
   if (updating || somethingChangedThisFrame) {
-    fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
+    fpsCounterElement.innerText = Math.round(1000 / (frameStartTime - lastFrameStartTime));
     applyViewChanges();
     render();
   }
-  lastFrameStartTime = frameStatTime;
+  lastFrameStartTime = frameStartTime;
   somethingChangedThisFrame = false;
   requestAnimationFrame(update);
 };
-
-profileNewTopLevelFunctions();
 
 // Setup canvas
 canvas = document.getElementById("graph-canvas");
@@ -275,7 +311,6 @@ canvas.width = window.innerWidth;
 // fit to whole window except for text at top
 const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop);
 canvas.height = window.innerHeight - fromTop;
-let canvasInnerWidth = canvas.width;
 let canvasInnerHeight = canvas.height;
 let canvasOffsetX = 0;
 let canvasOffsetY = 0;
@@ -293,23 +328,61 @@ canvas.addEventListener("mousemove", (event) => {
   }
 });
 
-// whether currently dragging is controlled by whether prev position is nonzero
-// need to record where mouse was when started dragging
-canvas.addEventListener("mousedown", (event) => {
+const screenCoordToSpaceCoord = (x, y) => [
+  (x - canvasOffsetX) / canvasInnerHeight,
+  (y - canvasOffsetY) / canvasInnerHeight,
+];
+
+var mouseDownHandler = (event) => {
+  const [mouseX, mouseY] = screenCoordToSpaceCoord(event.offsetX, event.offsetY);
+
+  // Linearly searching through the nodes to find the node that's clicked on.
+  // Could optimize this with the quadtree, but it only takes 0.5ms now
+  // If I were to optimize it with the quadtree, the quadtree would need to consider how wide the node labels are
+  // which would be much easier if all labels were the same size / had small max size (which might be good for aesthetics)
+  for (let node of nodes) {
+    if (
+      mouseX >= node.x - node.textWidth * 0.5 - labelPaddingX &&
+      mouseX <= node.x + node.textWidth * 0.5 + labelPaddingX &&
+      mouseY >= node.y &&
+      mouseY <= node.y + labelHeight
+    ) {
+      clickedNode = node;
+      clickedNodeAdjacent = [];
+      // find nodes connected to clicked node in edge array
+      // Don't already have a map of nodes -> their edges because there's no
+      // other need for it.
+      for (let [source, target] of edges) {
+        if (source === clickedNode) {
+          clickedNodeAdjacent.push(target);
+        }
+        if (target === clickedNode) {
+          clickedNodeAdjacent.push(source);
+        }
+      }
+      somethingChangedThisFrame = true;
+      return;
+    }
+  }
   mousePosition.prevX = event.offsetX;
   mousePosition.prevY = event.offsetY;
   somethingChangedThisFrame = true;
-});
+};
 
-const stopDrag = (event) => {
+profileNewTopLevelFunctions(); // all `var` functions declared before this point have their performance tracked
+
+// whether currently dragging is controlled by whether prev position is nonzero
+// need to record where mouse was when started dragging
+canvas.addEventListener("mousedown", mouseDownHandler);
+const stopDragHandler = (event) => {
   mousePosition.prevX = 0;
   mousePosition.prevY = 0;
   somethingChangedThisFrame = true;
 };
 
-canvas.addEventListener("mouseup", stopDrag);
+canvas.addEventListener("mouseup", stopDragHandler);
 
-canvas.addEventListener("mouseleave", stopDrag);
+canvas.addEventListener("mouseleave", stopDragHandler);
 
 canvas.addEventListener("keypress", (event) => {
   if (event.code === "Space") {
@@ -323,8 +396,6 @@ canvas.addEventListener("keypress", (event) => {
 canvas.addEventListener("wheel", (event) => {
   const scaling = event.deltaY * 0.01 * zoomRatioPerMouseWheelTick;
   const newCanvasInnerHeight = canvasInnerHeight * (1 - scaling);
-  const newCanvasInnerWidth = canvasInnerWidth * (1 - scaling);
-  canvasInnerWidth = newCanvasInnerWidth;
   canvasInnerHeight = newCanvasInnerHeight;
   somethingChangedThisFrame = true;
 });
@@ -332,9 +403,9 @@ canvas.addEventListener("wheel", (event) => {
 // Create graph from JSON exported by Roam.
 // JSON is in a global constant called roamJSON from the file help-roam-json for performance
 // (as opposed to fetching that here)
-const loadRomaJSON = () => {
-  const pageTitleMap = {};
-  roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
+var loadRoamJSON = () => {
+  const pageTitleToIdx = {};
+  roamJSON.forEach((page, i) => (pageTitleToIdx[page.title] = i));
   nodes = roamJSON.map((page) => newNode(page.title));
   edges = [];
   edgeIdxs = [];
@@ -351,7 +422,7 @@ const loadRomaJSON = () => {
       pageRefRegexes.forEach((regex) => {
         const matches = block.string.matchAll(regex);
         for (let match of matches) {
-          const targetPageId = pageTitleMap[match[1]];
+          const targetPageId = pageTitleToIdx[match[1]];
           if (targetPageId !== undefined) {
             const edgeHash = pageId + targetPageId * 1000000; // hash is bit concat id numbers
             if (edgeHashSet[edgeHash] === undefined) {
@@ -374,13 +445,13 @@ const loadRomaJSON = () => {
   // Process all blocks in all pages
   roamJSON.forEach((page) => {
     if (page.children !== undefined) {
-      page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
+      page.children.forEach((block) => processBlock(pageTitleToIdx[page.title], block));
     }
   });
 };
 
 if (useRoamJSON) {
-  loadRomaJSON();
+  loadRoamJSON();
   console.log(`let nodes = ${JSON.stringify(nodes)};
   let edgeIdxs = ${JSON.stringify(edgeIdxs)};`);
 } else {
