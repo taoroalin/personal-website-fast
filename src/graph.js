@@ -5,9 +5,6 @@ const useRoamJSON = false;
 // I'm using a script to automatically track performance on all functions I define using `var`
 // for development. Will switch these to const and use a more systematic performance tracker later
 
-// --------------- Mutable State ----------------
-let quadTree = [];
-
 let canvas, ctx;
 
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
@@ -70,8 +67,8 @@ const quadTreeNode = (x, y, r, kids = []) => ({
 });
 
 // move all kids in quadtree to child quadtrees, recursively
-const pushQuadTree = (branch, depth) => {
-  if (depth >= 20) {
+const pushQuadTree = (branch, recursionDepth = 0) => {
+  if (recursionDepth >= 20) {
     // Abort recursion if we've gone too deep
     return;
   }
@@ -97,7 +94,7 @@ const pushQuadTree = (branch, depth) => {
     const len = branch.tree[i].kids.length;
     if (len > 1) {
       // if there are multiple nodes in child tree, then push that child tree
-      pushQuadTree(branch.tree[i], depth + 1);
+      pushQuadTree(branch.tree[i], recursionDepth + 1);
     } else if (len === 0) {
       branch.tree[i] = undefined;
     } else {
@@ -105,11 +102,6 @@ const pushQuadTree = (branch, depth) => {
       branch.tree[i] = branch.tree[i].kids[0];
     }
   }
-};
-
-var makeQuadTree = () => {
-  quadTree = quadTreeNode(0.5, 0.5, 2, nodes);
-  pushQuadTree(quadTree, 0);
 };
 
 const repelNodeByQuadTree = (node, quadTree) => {
@@ -150,14 +142,15 @@ var physicsTick = () => {
     b.dy += accY;
   });
 
-  // Repel all nodes apart
-  makeQuadTree();
+  // Repel all nodes apart using Barnes-Hut approximation
+  const quadTree = quadTreeNode(0.5, 0.5, 2, nodes);
+  pushQuadTree(quadTree);
   nodes.forEach((node) => repelNodeByQuadTree(node, quadTree));
 
   nodes.forEach((node) => {
-    // Apply centering
-    node.x -= (node.x - 0.5) * centering;
-    node.y -= (node.y - 0.5) * centering;
+    // Pull nodes towards center
+    node.x -= (node.x - 0.5) * (node.x - 0.5) * (node.x - 0.5) * centering;
+    node.y -= (node.y - 0.5) * (node.y - 0.5) * (node.y - 0.5) * centering;
 
     // 'tick' position forward by velocity
     node.x += node.dx;
@@ -237,13 +230,13 @@ var update = () => {
   if (updating) {
     physicsTick();
   }
+  const frameStatTime = performance.now();
   if (updating || somethingChangedThisFrame) {
+    fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
     applyViewChanges();
     render();
-    const frameStatTime = performance.now();
-    fpsCounterElement.innerText = Math.round(1000 / (frameStatTime - lastFrameStartTime));
-    lastFrameStartTime = frameStatTime;
   }
+  lastFrameStartTime = frameStatTime;
   somethingChangedThisFrame = false;
   requestAnimationFrame(update);
 };
@@ -319,6 +312,7 @@ const loadRomaJSON = () => {
   roamJSON.forEach((page, i) => (pageTitleMap[page.title] = i));
   nodes = roamJSON.map((page) => newNode(page.title));
   edges = [];
+  edgeIdxs = [];
 
   // only count unique edges, keep track with "hash set"
   const edgeHashSet = {}; // hash is bit concat id numbers
@@ -362,6 +356,8 @@ const loadRomaJSON = () => {
 
 if (useRoamJSON) {
   loadRomaJSON();
+  console.log(`let nodes = ${JSON.stringify(nodes)};
+  let edgeIdxs = ${JSON.stringify(edgeIdxs)};`);
 } else {
   // store edges as references instead of idx's for performance
   edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
