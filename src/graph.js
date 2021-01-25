@@ -10,7 +10,8 @@ let canvas, ctx;
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
 let updating = true;
 
-let somethingChangedThisFrame = false;
+// whether anything changed, to know whether to render. Starts true to make sure it renders at least once
+let somethingChangedThisFrame = true;
 
 // ----------- Constants --------------------
 
@@ -47,7 +48,6 @@ let debugShowQuadTree = false;
 const randomConstantA = 1664525;
 const randomConstantC = 1013904223;
 const randomConstantM = 4294967296; // 2^32
-
 const makeRandom = () => {
   let s = 1;
   return () => (s = (randomConstantA * s + randomConstantC) % randomConstantM) / randomConstantM;
@@ -204,6 +204,21 @@ var renderQuadTree = (quadTree) => {
   }
 };
 
+const renderNodeBatch = (startIdx, endIdx) => {
+  // draw all node label backgrounds at once
+  ctx.fillStyle = "#eeeeee";
+  for (let i = startIdx; i < endIdx; i++) {
+    const node = nodes[i];
+    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
+  }
+  // draw all node labels at once
+  ctx.fillStyle = "#000000";
+  for (let i = startIdx; i < endIdx; i++) {
+    const node = nodes[i];
+    ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
+  }
+};
+
 var render = () => {
   // clear canvas in positive and negative directions
   ctx.save();
@@ -224,36 +239,9 @@ var render = () => {
   // draw nodes in batches to save time switching fillStyle
   const numBatches = Math.floor(nodes.length / nodeRenderBatchSize);
   for (let batch = 0; batch < numBatches; batch++) {
-    // draw node labels
-    ctx.fillStyle = "#eeeeee";
-    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
-      const node = nodes[i];
-      ctx.fillRect(
-        node.x - node.textWidth * 0.5 - labelPaddingX,
-        node.y,
-        node.textWidth + labelExtraWidth,
-        labelHeight
-      );
-    }
-    // draw node label backgrounds
-    ctx.fillStyle = "#000000";
-    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
-      const node = nodes[i];
-      ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
-    }
+    renderNodeBatch(batch * nodeRenderBatchSize, (batch + 1) * nodeRenderBatchSize);
   }
-  // draw node labels
-  ctx.fillStyle = "#eeeeee";
-  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
-    const node = nodes[i];
-    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
-  }
-  // draw node label backgrounds
-  ctx.fillStyle = "#000000";
-  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
-    const node = nodes[i];
-    ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
-  }
+  renderNodeBatch(numBatches * nodeRenderBatchSize, nodes.length);
 
   if (debugShowQuadTree) {
     ctx.strokeStyle = "#00ff00";
@@ -383,7 +371,7 @@ const loadRomaJSON = () => {
     }
   };
 
-  // Add edges in all blocks in all pages
+  // Process all blocks in all pages
   roamJSON.forEach((page) => {
     if (page.children !== undefined) {
       page.children.forEach((block) => processBlock(pageTitleMap[page.title], block));
@@ -400,9 +388,8 @@ if (useRoamJSON) {
   edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
 }
 
-// shuffle nodes to remove correlation between consecutive nodes,
-// allowing us to batch nodes by position in array and have them not drawn
-// over each other
+// shuffle nodes to make batches of consecutive nodes evenly distributed across screen
+// allowing us to render them out of order without interfering with each other
 function shuffle(array) {
   var currentIndex = array.length,
     temporaryValue,
@@ -430,13 +417,11 @@ for (let i = 0; i < simulationStepsBeforeRender; i++) {
 }
 
 // slow down simulation before rendering
+// edit individual constants instead of one global constant for performance
 attraction *= slowdown;
 friction *= slowdown;
 centering *= slowdown;
 maxSizeRatioToApproximate *= slowdown;
-
-applyViewChanges();
-render();
 
 requestAnimationFrame(update);
 
