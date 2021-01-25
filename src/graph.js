@@ -33,16 +33,29 @@ const zoomRatioPerMouseWheelTick = 0.15;
 const labelPaddingX = 0.003;
 const labelPaddingY = 0.003;
 let showQuadTree = false;
+let nodeRenderBatchSize = 20;
 
 // precomputing often-used UI values
 const labelExtraWidth = 2 * labelPaddingX;
 const labelHeight = 2 * labelPaddingY + 0.006;
 const labelTextYOffset = labelPaddingY + 0.006;
 
+// faster, looser random
+// https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
+const randomConstantA = 1664525;
+const randomConstantC = 1013904223;
+const randomConstantM = 4294967296; // 2^32
+
+const makeRandom = () => {
+  let s = 1;
+  return () => (s = (randomConstantA * s + randomConstantC) % randomConstantM) / randomConstantM;
+};
+const random = makeRandom();
+
 // create graph node
 const newNode = (title) => ({
-  x: Math.random(),
-  y: Math.random(),
+  x: random(),
+  y: random(),
   dx: 0,
   dy: 0,
   title: title,
@@ -206,17 +219,39 @@ var render = () => {
     ctx.stroke();
   });
 
-  // draw node label backgrounds
-  ctx.fillStyle = "#eeeeee";
-  nodes.forEach((node) => {
-    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
-  });
-
+  // draw nodes in batches to save time switching fillStyle
+  const numBatches = Math.floor(nodes.length / nodeRenderBatchSize);
+  for (let batch = 0; batch < numBatches; batch++) {
+    // draw node labels
+    ctx.fillStyle = "#eeeeee";
+    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
+      const node = nodes[i];
+      ctx.fillRect(
+        node.x - node.textWidth * 0.5 - labelPaddingX,
+        node.y,
+        node.textWidth + labelExtraWidth,
+        labelHeight
+      );
+    }
+    // draw node label backgrounds
+    ctx.fillStyle = "#000000";
+    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
+      const node = nodes[i];
+      ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
+    }
+  }
   // draw node labels
+  ctx.fillStyle = "#eeeeee";
+  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
+    const node = nodes[i];
+    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
+  }
+  // draw node label backgrounds
   ctx.fillStyle = "#000000";
-  nodes.forEach((node) => {
+  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
+    const node = nodes[i];
     ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
-  });
+  }
 
   if (showQuadTree) {
     ctx.strokeStyle = "#00ff00";
@@ -362,6 +397,28 @@ if (useRoamJSON) {
   // store edges as references instead of idx's for performance
   edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
 }
+function shuffle(array) {
+  var currentIndex = array.length,
+    temporaryValue,
+    randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+    // Pick a remaining element...
+    randomIndex = Math.floor(random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
+const zig = performance.now();
+shuffle(nodes);
+console.log(`shuffle ${performance.now() - zig}`);
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
