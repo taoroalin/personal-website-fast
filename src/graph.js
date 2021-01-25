@@ -21,8 +21,10 @@ let repulsion = 0.0000004;
 let centering = 0.004;
 const slowdown = 0.65;
 
-let maxSizeRatioToApproximate = 0.5;
-const simulationStepsBeforeRender = 200;
+// Constants that determine speed vs quality tradeoff
+let maxSizeRatioToApproximate = 0.5; // lower means quality, higher means speed
+const simulationStepsBeforeRender = 200; // higher means quality, lower means speed
+let nodeRenderBatchSize = 20; // higher means speed, lower means names might overlap
 
 // Math constants
 const epsilon = 0.0000001;
@@ -32,13 +34,13 @@ const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi
 const zoomRatioPerMouseWheelTick = 0.15;
 const labelPaddingX = 0.003;
 const labelPaddingY = 0.003;
-let showQuadTree = false;
-let nodeRenderBatchSize = 20;
 
 // precomputing often-used UI values
 const labelExtraWidth = 2 * labelPaddingX;
 const labelHeight = 2 * labelPaddingY + 0.006;
 const labelTextYOffset = labelPaddingY + 0.006;
+
+let debugShowQuadTree = false;
 
 // faster, looser random
 // https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
@@ -253,7 +255,7 @@ var render = () => {
     ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
   }
 
-  if (showQuadTree) {
+  if (debugShowQuadTree) {
     ctx.strokeStyle = "#00ff00";
     ctx.lineWidth = 0.0005;
     renderQuadTree(quadTree);
@@ -397,6 +399,10 @@ if (useRoamJSON) {
   // store edges as references instead of idx's for performance
   edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
 }
+
+// shuffle nodes to remove correlation between consecutive nodes,
+// allowing us to batch nodes by position in array and have them not drawn
+// over each other
 function shuffle(array) {
   var currentIndex = array.length,
     temporaryValue,
@@ -416,9 +422,7 @@ function shuffle(array) {
 
   return array;
 }
-const zig = performance.now();
 shuffle(nodes);
-console.log(`shuffle ${performance.now() - zig}`);
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
