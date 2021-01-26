@@ -1,9 +1,11 @@
 const graphJsStartTime = performance.now(); // measure when graph.js starts executing
 let lastFrameStartTime = 0; // for counting framerate
-const useRoamJSON = false;
+const useRoamJSON = true;
 
 // I'm using a script to automatically track performance on all functions I define using `var`
 // for development. Will switch these to const and use a more systematic performance tracker later
+
+// Nodes, and Edges, are defined in inline JS in json/graph-precomputed.js
 
 let canvas, ctx;
 
@@ -18,19 +20,19 @@ let somethingChangedThisFrame = true;
 // ----------- Constants --------------------
 
 // Physics constants
-let attraction = 0.004;
+let attraction = 0.01;
 let friction = 0.9;
-let repulsion = 0.0000004;
-let centering = 0.004;
+let repulsion = 0.00000022;
+let centering = 0.0005;
 const slowdown = 0.65;
+const attractionEpsilon = 0.001;
+const repulsionEpsilon = 0.0000001;
 
 // Constants that determine speed vs quality tradeoff
 let maxSizeRatioToApproximate = 0.5; // lower means quality, higher means speed
 const simulationStepsBeforeRender = 200; // higher means quality, lower means speed
 let nodeRenderBatchSize = 20; // higher means speed, lower means names might overlap
 
-// Math constants
-const epsilon = 0.0000001;
 const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi once instead of in loop
 
 // UI constants
@@ -41,7 +43,7 @@ const labelPaddingY = 0.003;
 // precomputing often-used UI values
 const labelExtraWidth = 2 * labelPaddingX;
 const labelHeight = 2 * labelPaddingY + 0.006;
-const labelTextYOffset = labelPaddingY + 0.006;
+const labelTextYOffset = 0.003;
 
 let debugShowQuadTree = false;
 
@@ -50,11 +52,9 @@ let debugShowQuadTree = false;
 const randomConstantA = 1664525;
 const randomConstantC = 1013904223;
 const randomConstantM = 4294967296; // 2^32
-const makeRandom = () => {
-  let s = 1;
-  return () => (s = (randomConstantA * s + randomConstantC) % randomConstantM) / randomConstantM;
-};
-const random = makeRandom();
+let randomSeed = 1;
+const random = () =>
+  (randomSeed = (randomConstantA * randomSeed + randomConstantC) % randomConstantM) / randomConstantM;
 
 // create graph node
 const newNode = (title) => ({
@@ -66,6 +66,7 @@ const newNode = (title) => ({
   numConnections: 0,
   // measure text width up front, not in loop. This requires ctx font to be already set.
   textWidth: ctx.measureText(title).width,
+  inverseTextWidth: 0.4,
   mass: 1,
 });
 
@@ -134,8 +135,9 @@ const repelNodeByQuadTree = (node, quadTree) => {
     quadTree.numConnections !== undefined
   ) {
     // Use 'approximation' to square root that's faster than Math.sqrt
-    const distanceMangledForPerformance = Math.abs(dx * dx * dx) + Math.abs(dy * dy * dy) + epsilon;
-    const factor = (quadTree.mass * repulsion) / distanceMangledForPerformance;
+    // const distanceSquared = dx * dx + dy * dy;
+    const distanceMangledForPerformance = dx * dx * dx * dx * 0.1 + dy * dy * dy * dy + repulsionEpsilon;
+    const factor = (node.inverseMass * (quadTree.mass * repulsion)) / distanceMangledForPerformance;
     node.dx += dx * factor;
     node.dy += dy * factor;
   } else {
@@ -149,7 +151,7 @@ var physicsTick = () => {
     const dx = a.x - b.x;
     const dy = a.y - b.y;
     // Use 'approximation' to square root that's faster than Math.sqrt
-    const distanceMangledForPerformance = Math.abs(dx) + Math.abs(dy) + epsilon;
+    const distanceMangledForPerformance = Math.abs(dx) + Math.abs(dy) + attractionEpsilon;
     const factor = attraction / distanceMangledForPerformance;
     const accX = dx * factor;
     const accY = dy * factor;
@@ -160,22 +162,22 @@ var physicsTick = () => {
   });
 
   // Repel all nodes apart using Barnes-Hut approximation
-  const quadTree = quadTreeNode(0.5, 0.5, 2, nodes);
+  const quadTree = quadTreeNode(0.5, 0.5, 4, nodes);
   pushQuadTree(quadTree);
   nodes.forEach((node) => repelNodeByQuadTree(node, quadTree));
 
   nodes.forEach((node) => {
+    // Slow down nodes by friction ratio
+    node.dx = node.dx * friction;
+    node.dy = node.dy * friction;
+
     // Pull nodes towards center
-    node.x -= (node.x - 0.5) * (node.x - 0.5) * (node.x - 0.5) * centering;
-    node.y -= (node.y - 0.5) * (node.y - 0.5) * (node.y - 0.5) * centering;
+    node.x -= (node.x - 0.5) * centering;
+    node.y -= (node.y - 0.5) * centering;
 
     // 'tick' position forward by velocity
     node.x += node.dx;
     node.y += node.dy;
-
-    // Slow down nodes by friction ratio
-    node.dx *= friction;
-    node.dy *= friction;
   });
 };
 
@@ -198,28 +200,24 @@ var applyViewChanges = () => {
   );
 };
 
-// Debug: show quadTree boxes
-var renderQuadTree = (quadTree) => {
+var debugRenderQuadTree = (quadTree) => {
   if (quadTree && quadTree.tree) {
     ctx.strokeRect(quadTree.x - quadTree.r, quadTree.y - quadTree.r, quadTree.r * 2, quadTree.r * 2);
-    quadTree.tree.forEach(renderQuadTree);
+    quadTree.tree.forEach(debugRenderQuadTree);
   }
 };
 
-const renderNodeBatch = (startIdx, endIdx) => {
-  // draw all node label backgrounds at once
-  ctx.fillStyle = "#eeeeee";
-  for (let i = startIdx; i < endIdx; i++) {
-    const node = nodes[i];
-    ctx.fillRect(node.x - node.textWidth * 0.5 - labelPaddingX, node.y, node.textWidth + labelExtraWidth, labelHeight);
-  }
-  // draw all node labels at once
-  ctx.fillStyle = "#000000";
-  for (let i = startIdx; i < endIdx; i++) {
-    const node = nodes[i];
-    ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
-  }
-};
+// renderNodeBackground and renderNodeText don't set their own colors (fillStyle)
+// for performance. Set the canvas to the color you want before calling
+// can get 10-20% more render performance by inlining this more, but that's just bananas for maintainability
+const renderNodeBackground = (node) =>
+  ctx.fillRect(
+    node.x - node.textWidth * 0.25 * node.mass - labelPaddingX,
+    node.y - labelHeight * node.mass * 0.5,
+    (node.textWidth + labelExtraWidth) * node.mass * 0.5,
+    labelHeight * node.mass
+  );
+const renderNodeText = (node) => ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
 
 var render = () => {
   // clear canvas in positive and negative directions
@@ -241,9 +239,25 @@ var render = () => {
   // draw nodes in batches to save time switching fillStyle
   const numBatches = Math.floor(nodes.length / nodeRenderBatchSize);
   for (let batch = 0; batch < numBatches; batch++) {
-    renderNodeBatch(batch * nodeRenderBatchSize, (batch + 1) * nodeRenderBatchSize);
+    ctx.fillStyle = "#eeeeee";
+    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
+      renderNodeBackground(nodes[i]);
+    }
+    // draw all node labels at once
+    ctx.fillStyle = "#000000";
+    for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
+      renderNodeText(nodes[i]);
+    }
   }
-  renderNodeBatch(numBatches * nodeRenderBatchSize, nodes.length);
+  ctx.fillStyle = "#eeeeee";
+  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
+    renderNodeBackground(nodes[i]);
+  }
+  // draw all node labels at once
+  ctx.fillStyle = "#000000";
+  for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
+    renderNodeText(nodes[i]);
+  }
 
   if (clickedNode !== null) {
     // draw edges and connected nodes from clicked node
@@ -258,33 +272,23 @@ var render = () => {
     clickedNodeAdjacent.forEach((adjacent) => {
       // draw adjacent node label
       ctx.fillStyle = "#9999ff";
-      ctx.fillRect(
-        adjacent.x - adjacent.textWidth * 0.5 - labelPaddingX,
-        adjacent.y,
-        adjacent.textWidth + labelExtraWidth,
-        labelHeight
-      );
+      renderNodeBackground(adjacent);
       // draw all node labels at once
       ctx.fillStyle = "#000000";
-      ctx.fillText(adjacent.title, adjacent.x - adjacent.textWidth * 0.5, adjacent.y + labelTextYOffset);
+      renderNodeText(adjacent);
     });
     // draw clicked node label
     ctx.fillStyle = "#3333ff";
-    ctx.fillRect(
-      clickedNode.x - clickedNode.textWidth * 0.5 - labelPaddingX,
-      clickedNode.y,
-      clickedNode.textWidth + labelExtraWidth,
-      labelHeight
-    );
+    renderNodeBackground(clickedNode);
     // draw all node labels at once
     ctx.fillStyle = "#000000";
-    ctx.fillText(clickedNode.title, clickedNode.x - clickedNode.textWidth * 0.5, clickedNode.y + labelTextYOffset);
+    renderNodeText(clickedNode);
   }
 
   if (debugShowQuadTree) {
     ctx.strokeStyle = "#00ff00";
     ctx.lineWidth = 0.0005;
-    renderQuadTree(quadTree);
+    debugRenderQuadTree(quadTree);
   }
 };
 
@@ -318,7 +322,7 @@ let canvasOffsetY = 0;
 const fpsCounterElement = document.getElementById("fps");
 
 applyViewChanges();
-ctx.font = `0.01px Verdana`;
+ctx.font = `bold 0.015px Verdana`;
 
 canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
@@ -340,12 +344,14 @@ var mouseDownHandler = (event) => {
   // Could optimize this with the quadtree, but it only takes 0.5ms now
   // If I were to optimize it with the quadtree, the quadtree would need to consider how wide the node labels are
   // which would be much easier if all labels were the same size / had small max size (which might be good for aesthetics)
-  for (let node of nodes) {
+  for (let nodeIdx = nodes.length - 1; nodeIdx >= 0; nodeIdx--) {
+    // Iterate backwards through nodes to hit most recently drawn first
+    const node = nodes[nodeIdx];
     if (
-      mouseX >= node.x - node.textWidth * 0.5 - labelPaddingX &&
-      mouseX <= node.x + node.textWidth * 0.5 + labelPaddingX &&
-      mouseY >= node.y &&
-      mouseY <= node.y + labelHeight
+      mouseX >= node.x - node.textWidth * 0.25 * node.mass - labelPaddingX &&
+      mouseY >= node.y - labelHeight * node.mass * 0.5 &&
+      mouseX <= node.x + node.textWidth * 0.25 * node.mass + labelPaddingX &&
+      mouseY <= node.y + labelHeight * node.mass * 0.5
     ) {
       clickedNode = node;
       clickedNodeAdjacent = [];
@@ -397,13 +403,14 @@ canvas.addEventListener("wheel", (event) => {
   const scaling = event.deltaY * 0.01 * zoomRatioPerMouseWheelTick;
   const newCanvasInnerHeight = canvasInnerHeight * (1 - scaling);
   canvasInnerHeight = newCanvasInnerHeight;
+  event.preventDefault();
   somethingChangedThisFrame = true;
 });
 
-// Create graph from JSON exported by Roam.
-// JSON is in a global constant called roamJSON from the file help-roam-json for performance
-// (as opposed to fetching that here)
-var loadRoamJSON = () => {
+if (useRoamJSON) {
+  // Create graph from JSON exported by Roam.
+  // JSON is in a global constant called roamJSON from the file help-roam-json for performance
+  // (as opposed to fetching that here)
   const pageTitleToIdx = {};
   roamJSON.forEach((page, i) => (pageTitleToIdx[page.title] = i));
   nodes = roamJSON.map((page) => newNode(page.title));
@@ -429,6 +436,7 @@ var loadRoamJSON = () => {
               edgeHashSet[edgeHash] = true;
               nodes[pageId].numConnections += 1;
               nodes[targetPageId].numConnections += 1;
+              nodes[pageId];
               edges.push([nodes[pageId], nodes[targetPageId]]);
               edgeIdxs.push([pageId, targetPageId]);
             }
@@ -448,10 +456,12 @@ var loadRoamJSON = () => {
       page.children.forEach((block) => processBlock(pageTitleToIdx[page.title], block));
     }
   });
-};
 
-if (useRoamJSON) {
-  loadRoamJSON();
+  for (let node of nodes) {
+    node.mass = Math.pow(node.numConnections, 0.25) + 1;
+    node.inverseMass = 1 / node.mass;
+  }
+
   console.log(`let nodes = ${JSON.stringify(nodes)};
   let edgeIdxs = ${JSON.stringify(edgeIdxs)};`);
 } else {
@@ -480,7 +490,7 @@ function shuffle(array) {
 
   return array;
 }
-shuffle(nodes);
+nodes = nodes.sort((a, b) => a.numConnections < b.numConnections);
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {
