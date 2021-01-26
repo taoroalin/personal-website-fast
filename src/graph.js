@@ -1,10 +1,12 @@
+// Render roam graph on a canvas
+// Returns a function that stops rendering graph
 const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const graphJsStartTime = performance.now(); // measure when graph.js starts executing
   let lastFrameStartTime = 0; // for counting framerate
 
   let nodes, edges;
 
-  let ctx;
+  let ctx; // HTML5 canvas 2d context
 
   let clickedNode = null;
   let clickedNodeAdjacent = [];
@@ -227,12 +229,12 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
     // draw edge lines first so they go underneath nodes
     ctx.strokeStyle = "#a7a7a7"; // Set canvas state outside of loop for performance
     ctx.lineWidth = 0.002;
-    edges.forEach(([startNode, endNode]) => {
+    for (let [startNode, endNode] of edges) {
       ctx.beginPath();
       ctx.moveTo(startNode.x, startNode.y);
       ctx.lineTo(endNode.x, endNode.y);
       ctx.stroke();
-    });
+    }
 
     // draw nodes in batches to save time switching fillStyle
     const numBatches = Math.floor(nodes.length / nodeRenderBatchSize);
