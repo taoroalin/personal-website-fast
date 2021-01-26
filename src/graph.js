@@ -38,8 +38,6 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const labelPaddingX = 0.003;
   const labelPaddingY = 0.003;
 
-  let debugShowQuadTree = false;
-
   // faster, looser random
   // https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
   const randomConstantA = 1664525;
@@ -51,8 +49,8 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
 
   // create graph node
   const newNode = (title) => ({
-    x: random(),
-    y: random(),
+    x: random() - 0.5,
+    y: random() - 0.5,
     dx: 0,
     dy: 0,
     title: title,
@@ -135,6 +133,23 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
     }
   };
 
+  const [nodeLoop, nodeLoopTime] = timeFunc(() => {
+    nodes.forEach((node) => {
+      // Slow down nodes by friction ratio
+      node.dx = node.dx * friction;
+      node.dy = node.dy * friction;
+
+      // Pull nodes towards center
+      node.x -= Math.sign(node.x) * node.x * node.x * centering;
+      node.y -= Math.sign(node.y) * node.y * node.y * centering;
+
+      // 'tick' position forward by velocity
+      node.x += node.dx;
+      node.y += node.dy;
+    });
+  }, "node loop");
+  console.log(nodeLoopTime);
+
   const physicsTick = () => {
     // Attract nodes on edges together
     edges.forEach(([a, b]) => {
@@ -156,19 +171,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
     pushQuadTree(quadTree);
     nodes.forEach((node) => repelNodeByQuadTree(node, quadTree));
 
-    nodes.forEach((node) => {
-      // Slow down nodes by friction ratio
-      node.dx = node.dx * friction;
-      node.dy = node.dy * friction;
-
-      // Pull nodes towards center
-      node.x -= Math.sign(node.x - 0.5) * (node.x - 0.5) * (node.x - 0.5) * centering;
-      node.y -= Math.sign(node.y - 0.5) * (node.y - 0.5) * (node.y - 0.5) * centering;
-
-      // 'tick' position forward by velocity
-      node.x += node.dx;
-      node.y += node.dy;
-    });
+    nodeLoop();
   };
 
   const applyViewChanges = () => {
@@ -203,13 +206,6 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const renderNodeText = (node) => {
     ctx.font = `bold ${node.mass * 0.015}px Verdana`;
     ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + 0.006 * node.mass * 0.5);
-  };
-
-  const debugRenderQuadTree = (quadTree) => {
-    if (quadTree && quadTree.tree) {
-      ctx.strokeRect(quadTree.x - quadTree.r, quadTree.y - quadTree.r, quadTree.r * 2, quadTree.r * 2);
-      quadTree.tree.forEach(debugRenderQuadTree);
-    }
   };
 
   const clearCanvas = () => {
@@ -281,30 +277,30 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       ctx.fillStyle = "#000000";
       renderNodeText(clickedNode);
     }
-
-    if (debugShowQuadTree) {
-      ctx.strokeStyle = "#00ff00";
-      ctx.lineWidth = 0.0005;
-      debugRenderQuadTree(quadTree);
-    }
   };
 
   // This is called once per animation frame
   const update = () => {
-    if (updating) {
-      physicsTick();
-    }
-    const frameStartTime = performance.now();
-    if (updating || somethingChangedThisFrame) {
-      fpsCounterElement.innerText = Math.round(1000 / (frameStartTime - lastFrameStartTime));
-      applyViewChanges();
-      render();
-    }
-    lastFrameStartTime = frameStartTime;
-    somethingChangedThisFrame = false;
     if (running) {
+      if (updating) {
+        physicsTick();
+      }
+      const frameStartTime = performance.now();
+      if (updating || somethingChangedThisFrame) {
+        fpsCounterElement.innerText = Math.round(1000 / (frameStartTime - lastFrameStartTime));
+        applyViewChanges();
+        render();
+      }
+      lastFrameStartTime = frameStartTime;
+      somethingChangedThisFrame = false;
       requestAnimationFrame(update);
     } else {
+      clearCanvas();
+      canvas = null;
+      ctx = null;
+      fpsCounterElement = null;
+      nodes = null;
+      edges = null;
     }
   };
 
@@ -315,10 +311,10 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop);
   canvas.height = window.innerHeight - fromTop;
   let canvasInnerHeight = canvas.height;
-  let canvasOffsetX = 0;
-  let canvasOffsetY = 0;
+  let canvasOffsetX = canvas.height / 2;
+  let canvasOffsetY = canvas.width / 2;
 
-  const fpsCounterElement = document.getElementById("fps");
+  let fpsCounterElement = document.getElementById("fps");
 
   applyViewChanges();
 
@@ -404,8 +400,8 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   });
 
   if (precomputedGraph !== undefined) {
-    // store edges as references instead of idx's for performance
     nodes = precomputedGraph.nodes;
+    // store edges as references instead of idx's for performance
     edges = precomputedGraph.edges.map(([source, target]) => [nodes[source], nodes[target]]);
   } else if (roamJSON !== undefined) {
     // Create graph from JSON exported by Roam.
@@ -465,8 +461,8 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       node.inverseTextWidth = 0.4;
     }
 
-    console.log(`let nodes = ${JSON.stringify(nodes)};
-    let edgeIdxs = ${JSON.stringify(edgeIdxs)};`);
+    // console.log(`let nodes = ${JSON.stringify(nodes)};
+    // let edgeIdxs = ${JSON.stringify(edgeIdxs)};`);
   } else {
     throw new Error("graph.js needs either roamJSON or precomputedGraph");
   }
@@ -483,7 +479,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   // edit individual constants instead of one global constant for performance
   attraction *= slowdown;
   friction *= slowdown;
-  centering *= slowdown;
+  centering *= slowdown * slowdown;
   maxSizeRatioToApproximate *= slowdown;
 
   requestAnimationFrame(update);
@@ -496,5 +492,3 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   // return function to exit graph
   return () => (running = false);
 };
-var stopGraph = displayRoamJSONGraph({ canvas: document.getElementById("graph-canvas"), roamJSON: roamJSON });
-// setTimeout(() => stopGraph(), 4000);

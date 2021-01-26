@@ -14,6 +14,7 @@
     </h3>
     <canvas id="graph-canvas" width="936" height="969" tabindex="0" style="outline:none">
     </canvas>
+    <script src="timing.js"></script>
     <!-- <script src="json/graph-precomputed.js"></script> -->
 
     <!-- Roam exported JSON is stored in a JS file so it starts loading instantly -->
@@ -21,4 +22,7 @@
     <script src="json/help-roam-json.js"></script>
     <!-- <script src="json/tao-old-small-roam.js"></script> -->
     <script src="graph.js"></script>
+    <script type="text/javascript">
+        var stopGraph = displayRoamJSONGraph({ canvas: document.getElementById("graph-canvas"), roamJSON: roamJSON });
+    </script>
 </body>
