@@ -12,7 +12,7 @@ let canvas, ctx;
 let clickedNode = null;
 let clickedNodeAdjacent = [];
 let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
-let updating = true;
+let updating = false;
 
 // whether anything changed, to know whether to render. Starts true to make sure it renders at least once
 let somethingChangedThisFrame = true;
@@ -23,7 +23,7 @@ let somethingChangedThisFrame = true;
 let attraction = 0.01;
 let friction = 0.9;
 let repulsion = 0.00000022;
-let centering = 0.0005;
+let centering = 0.001;
 const slowdown = 0.65;
 const attractionEpsilon = 0.001;
 const repulsionEpsilon = 0.0000001;
@@ -172,8 +172,8 @@ var physicsTick = () => {
     node.dy = node.dy * friction;
 
     // Pull nodes towards center
-    node.x -= (node.x - 0.5) * centering;
-    node.y -= (node.y - 0.5) * centering;
+    node.x -= Math.sign(node.x - 0.5) * (node.x - 0.5) * (node.x - 0.5) * centering;
+    node.y -= Math.sign(node.y - 0.5) * (node.y - 0.5) * (node.y - 0.5) * centering;
 
     // 'tick' position forward by velocity
     node.x += node.dx;
@@ -212,9 +212,9 @@ var debugRenderQuadTree = (quadTree) => {
 // can get 10-20% more render performance by inlining this more, but that's just bananas for maintainability
 const renderNodeBackground = (node) =>
   ctx.fillRect(
-    node.x - node.textWidth * 0.25 * node.mass - labelPaddingX,
+    node.x - node.textWidth * 0.5 * node.mass - labelPaddingX,
     node.y - labelHeight * node.mass * 0.5,
-    (node.textWidth + labelExtraWidth) * node.mass * 0.5,
+    (node.textWidth + labelExtraWidth) * node.mass,
     labelHeight * node.mass
   );
 const renderNodeText = (node) => ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
@@ -227,7 +227,7 @@ var render = () => {
   ctx.restore();
 
   // draw edge lines first so they go underneath nodes
-  ctx.strokeStyle = "#bbbbbb"; // Set canvas state outside of loop for performance
+  ctx.strokeStyle = "#a7a7a7"; // Set canvas state outside of loop for performance
   ctx.lineWidth = 0.002;
   edges.forEach(([startNode, endNode]) => {
     ctx.beginPath();
@@ -348,9 +348,9 @@ var mouseDownHandler = (event) => {
     // Iterate backwards through nodes to hit most recently drawn first
     const node = nodes[nodeIdx];
     if (
-      mouseX >= node.x - node.textWidth * 0.25 * node.mass - labelPaddingX &&
+      mouseX >= node.x - node.textWidth * 0.5 * node.mass - labelPaddingX &&
       mouseY >= node.y - labelHeight * node.mass * 0.5 &&
-      mouseX <= node.x + node.textWidth * 0.25 * node.mass + labelPaddingX &&
+      mouseX <= node.x + node.textWidth * 0.5 * node.mass + labelPaddingX &&
       mouseY <= node.y + labelHeight * node.mass * 0.5
     ) {
       clickedNode = node;
@@ -444,7 +444,6 @@ if (useRoamJSON) {
         }
       });
     }
-
     if (block.children !== undefined) {
       block.children.forEach((block) => processBlock(pageId, block));
     }
@@ -458,7 +457,7 @@ if (useRoamJSON) {
   });
 
   for (let node of nodes) {
-    node.mass = Math.pow(node.numConnections, 0.25) + 1;
+    node.mass = Math.pow(node.numConnections, 0.25) * 0.5 + 1;
     node.inverseMass = 1 / node.mass;
   }
 
@@ -469,28 +468,8 @@ if (useRoamJSON) {
   edges = edgeIdxs.map(([source, target]) => [nodes[source], nodes[target]]);
 }
 
-// shuffle nodes to make batches of consecutive nodes evenly distributed across screen
-// allowing us to render them out of order without interfering with each other
-function shuffle(array) {
-  var currentIndex = array.length,
-    temporaryValue,
-    randomIndex;
-
-  // While there remain elements to shuffle...
-  while (0 !== currentIndex) {
-    // Pick a remaining element...
-    randomIndex = Math.floor(random() * currentIndex);
-    currentIndex -= 1;
-
-    // And swap it with the current element.
-    temporaryValue = array[currentIndex];
-    array[currentIndex] = array[randomIndex];
-    array[randomIndex] = temporaryValue;
-  }
-
-  return array;
-}
-nodes = nodes.sort((a, b) => a.numConnections < b.numConnections);
+// sort by increasing mass so most important nodes get rendered on top of less important nodes
+nodes = nodes.sort((a, b) => a.mass - b.mass);
 
 // simulate physics before render
 for (let i = 0; i < simulationStepsBeforeRender; i++) {

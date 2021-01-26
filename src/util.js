@@ -28,10 +28,28 @@ var undirectedConnectedSubGraphs = (nodes, edges) => {
     const comp = graphsByComponent[find(edge[0])];
     comp.edges.push([nodes[edge[0]], nodes[edge[1]]]);
   });
-  return Object.values(graphsByComponent).sort(
-    (a, b) => b.nodes.length - a.nodes.length
-  );
+  return Object.values(graphsByComponent).sort((a, b) => b.nodes.length - a.nodes.length);
 };
+
+function shuffle(array) {
+  var currentIndex = array.length,
+    temporaryValue,
+    randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
+}
 // console.log(
 //   undirectedConnectedSubGraphs(
 //     [{}, {}, {}, {}, {}],
