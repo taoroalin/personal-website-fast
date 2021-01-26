@@ -261,7 +261,7 @@ var render = () => {
 
   if (clickedNode !== null) {
     // draw edges and connected nodes from clicked node
-    ctx.strokeStyle = "#9999ff"; // Set canvas state outside of loop for performance
+    ctx.strokeStyle = "#80d7ff"; // Set canvas state outside of loop for performance
     ctx.lineWidth = 0.003;
     clickedNodeAdjacent.forEach((adjacent) => {
       ctx.beginPath();
@@ -271,14 +271,14 @@ var render = () => {
     });
     clickedNodeAdjacent.forEach((adjacent) => {
       // draw adjacent node label
-      ctx.fillStyle = "#9999ff";
+      ctx.fillStyle = "#80d7ff";
       renderNodeBackground(adjacent);
       // draw all node labels at once
       ctx.fillStyle = "#000000";
       renderNodeText(adjacent);
     });
     // draw clicked node label
-    ctx.fillStyle = "#3333ff";
+    ctx.fillStyle = "#28bbff";
     renderNodeBackground(clickedNode);
     // draw all node labels at once
     ctx.fillStyle = "#000000";
