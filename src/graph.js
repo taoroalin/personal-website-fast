@@ -38,6 +38,11 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const labelPaddingX = 0.003;
   const labelPaddingY = 0.003;
 
+  const nodeBackgroundColor = "#eeeeee";
+  const textColor = "#000000";
+  const clickedAdjacentColor = "#80d7ff";
+  const clickedColor = "#28bbff";
+
   // faster, looser random
   // https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
   const randomConstantA = 1664525;
@@ -232,29 +237,29 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
     // draw nodes in batches to save time switching fillStyle
     const numBatches = Math.floor(nodes.length / nodeRenderBatchSize);
     for (let batch = 0; batch < numBatches; batch++) {
-      ctx.fillStyle = "#eeeeee";
+      ctx.fillStyle = nodeBackgroundColor;
       for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
         renderNodeBackground(nodes[i]);
       }
       // draw all node labels at once
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = textColor;
       for (let i = batch * nodeRenderBatchSize; i < (batch + 1) * nodeRenderBatchSize; i++) {
         renderNodeText(nodes[i]);
       }
     }
-    ctx.fillStyle = "#eeeeee";
+    ctx.fillStyle = nodeBackgroundColor;
     for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
       renderNodeBackground(nodes[i]);
     }
     // draw all node labels at once
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = textColor;
     for (let i = numBatches * nodeRenderBatchSize; i < nodes.length; i++) {
       renderNodeText(nodes[i]);
     }
 
     if (clickedNode !== null) {
       // draw edges and connected nodes from clicked node
-      ctx.strokeStyle = "#80d7ff"; // Set canvas state outside of loop for performance
+      ctx.strokeStyle = clickedAdjacentColor; // Set canvas state outside of loop for performance
       ctx.lineWidth = 0.003;
       clickedNodeAdjacent.forEach((adjacent) => {
         ctx.beginPath();
@@ -264,17 +269,17 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       });
       clickedNodeAdjacent.forEach((adjacent) => {
         // draw adjacent node label
-        ctx.fillStyle = "#80d7ff";
+        ctx.fillStyle = clickedAdjacentColor;
         renderNodeBackground(adjacent);
         // draw all node labels at once
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = textColor;
         renderNodeText(adjacent);
       });
       // draw clicked node label
-      ctx.fillStyle = "#28bbff";
+      ctx.fillStyle = clickedColor;
       renderNodeBackground(clickedNode);
       // draw all node labels at once
-      ctx.fillStyle = "#000000";
+      ctx.fillStyle = textColor;
       renderNodeText(clickedNode);
     }
   };
@@ -287,7 +292,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       }
       const frameStartTime = performance.now();
       if (updating || somethingChangedThisFrame) {
-        fpsCounterElement.innerText = Math.round(1000 / (frameStartTime - lastFrameStartTime));
+        if (fpsCounterElement) fpsCounterElement.innerText = Math.round(1000 / (frameStartTime - lastFrameStartTime));
         applyViewChanges();
         render();
       }
@@ -315,6 +320,8 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   let canvasOffsetY = canvas.width / 2;
 
   let fpsCounterElement = document.getElementById("fps");
+  let statusElement = document.getElementById("status");
+  let startupTimeElement = document.getElementById("startupTime");
 
   applyViewChanges();
 
@@ -484,8 +491,8 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
 
   requestAnimationFrame(update);
 
-  document.getElementById("startupTime").innerText = Math.round(performance.now() - graphJsStartTime) * 0.001;
-  document.getElementById("status").innerText = "Running";
+  if (startupTimeElement) startupTimeElement.innerText = Math.round(performance.now() - graphJsStartTime) * 0.001;
+  if (statusElement) statusElement.innerText = "Running";
 
   setTimeout(() => (updating = false), 5000);
 
