@@ -31,7 +31,7 @@ const repulsionEpsilon = 0.0000001;
 // Constants that determine speed vs quality tradeoff
 let maxSizeRatioToApproximate = 0.5; // lower means quality, higher means speed
 const simulationStepsBeforeRender = 200; // higher means quality, lower means speed
-let nodeRenderBatchSize = 20; // higher means speed, lower means names might overlap
+let nodeRenderBatchSize = 6; // higher means speed, lower means names might overlap
 
 const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi once instead of in loop
 
@@ -39,11 +39,6 @@ const twoPI = 2 * Math.PI; // get a few percent performance by precomputing 2*pi
 const zoomRatioPerMouseWheelTick = 0.15;
 const labelPaddingX = 0.003;
 const labelPaddingY = 0.003;
-
-// precomputing often-used UI values
-const labelExtraWidth = 2 * labelPaddingX;
-const labelHeight = 2 * labelPaddingY + 0.006;
-const labelTextYOffset = 0.003;
 
 let debugShowQuadTree = false;
 
@@ -64,9 +59,6 @@ const newNode = (title) => ({
   dy: 0,
   title: title,
   numConnections: 0,
-  // measure text width up front, not in loop. This requires ctx font to be already set.
-  textWidth: ctx.measureText(title).width,
-  inverseTextWidth: 0.4,
   mass: 1,
 });
 
@@ -200,24 +192,27 @@ var applyViewChanges = () => {
   );
 };
 
+// renderNodeBackground and renderNodeText don't set their own colors (fillStyle)
+// for performance. Set the canvas to the color you want before calling
+// can get 10-20% more render performance by inlining this, but that's just bananas for maintainability
+const renderNodeBackground = (node) =>
+  ctx.fillRect(
+    node.x - node.textWidth * 0.5 - labelPaddingX,
+    node.y - 0.008 * node.mass - labelPaddingY,
+    node.textWidth + labelPaddingX * 2,
+    0.015 * node.mass + labelPaddingY * 2
+  );
+const renderNodeText = (node) => {
+  ctx.font = `bold ${node.mass * 0.015}px Verdana`;
+  ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + 0.006 * node.mass * 0.5);
+};
+
 var debugRenderQuadTree = (quadTree) => {
   if (quadTree && quadTree.tree) {
     ctx.strokeRect(quadTree.x - quadTree.r, quadTree.y - quadTree.r, quadTree.r * 2, quadTree.r * 2);
     quadTree.tree.forEach(debugRenderQuadTree);
   }
 };
-
-// renderNodeBackground and renderNodeText don't set their own colors (fillStyle)
-// for performance. Set the canvas to the color you want before calling
-// can get 10-20% more render performance by inlining this more, but that's just bananas for maintainability
-const renderNodeBackground = (node) =>
-  ctx.fillRect(
-    node.x - node.textWidth * 0.5 * node.mass - labelPaddingX,
-    node.y - labelHeight * node.mass * 0.5,
-    (node.textWidth + labelExtraWidth) * node.mass,
-    labelHeight * node.mass
-  );
-const renderNodeText = (node) => ctx.fillText(node.title, node.x - node.textWidth * 0.5, node.y + labelTextYOffset);
 
 var render = () => {
   // clear canvas in positive and negative directions
@@ -322,7 +317,6 @@ let canvasOffsetY = 0;
 const fpsCounterElement = document.getElementById("fps");
 
 applyViewChanges();
-ctx.font = `bold 0.015px Verdana`;
 
 canvas.addEventListener("mousemove", (event) => {
   mousePosition.x = event.offsetX;
@@ -348,10 +342,10 @@ var mouseDownHandler = (event) => {
     // Iterate backwards through nodes to hit most recently drawn first
     const node = nodes[nodeIdx];
     if (
-      mouseX >= node.x - node.textWidth * 0.5 * node.mass - labelPaddingX &&
-      mouseY >= node.y - labelHeight * node.mass * 0.5 &&
-      mouseX <= node.x + node.textWidth * 0.5 * node.mass + labelPaddingX &&
-      mouseY <= node.y + labelHeight * node.mass * 0.5
+      mouseX >= node.x - node.textWidth * 0.5 - labelPaddingX &&
+      mouseY >= node.y - 0.008 * node.mass - labelPaddingY &&
+      mouseX <= node.x + node.textWidth * 0.5 + labelPaddingX &&
+      mouseY <= node.y + 0.007 * node.mass + labelPaddingY
     ) {
       clickedNode = node;
       clickedNodeAdjacent = [];
@@ -459,6 +453,10 @@ if (useRoamJSON) {
   for (let node of nodes) {
     node.mass = Math.pow(node.numConnections, 0.25) * 0.5 + 1;
     node.inverseMass = 1 / node.mass;
+    // measure text width up front, not in loop. This requires ctx font to be already set.
+    ctx.font = `bold ${node.mass * 0.015}px Verdana`;
+    node.textWidth = ctx.measureText(node.title).width;
+    node.inverseTextWidth = 0.4;
   }
 
   console.log(`let nodes = ${JSON.stringify(nodes)};
