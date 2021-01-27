@@ -11,7 +11,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   let clickedNode = null;
   let clickedNodeAdjacent = [];
   let mousePosition = { x: 0, y: 0, prevX: 0, prevY: 0 };
-  let updating = false;
+  let updating = true;
   let running = true; // use this to asynchronously stop rendering
 
   // whether anything changed, to know whether to render. Starts true to make sure it renders at least once
@@ -50,7 +50,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   const randomConstantA = 1664525;
   const randomConstantC = 1013904223;
   const randomConstantM = 4294967296; // 2^32
-  let randomSeed = 1;
+  let randomSeed = Math.random();
   const random = () =>
     (randomSeed = (randomConstantA * randomSeed + randomConstantC) % randomConstantM) / randomConstantM;
 
@@ -130,7 +130,6 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       quadTree.numConnections !== undefined
     ) {
       // Use 'approximation' to square root that's faster than Math.sqrt
-      // const distanceSquared = dx * dx + dy * dy;
       const distanceMangledForPerformance = dx * dx * dx * dx * 0.1 + dy * dy * dy * dy + repulsionEpsilon;
       const factor = (node.inverseMass * (quadTree.mass * repulsion)) / distanceMangledForPerformance;
       node.dx += dx * factor;
@@ -202,7 +201,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
 
   // renderNodeBackground and renderNodeText don't set their own colors (fillStyle)
   // for performance. Set the canvas to the color you want before calling
-  // can get 10-20% more render performance by inlining this, but that's just bananas for maintainability
+  // can get 10-20% more render performance by inlining this, but that would just be bananas for maintainability
   const renderNodeBackground = (node) =>
     ctx.fillRect(
       node.x - node.textWidth * 0.5 - labelPaddingX,
@@ -289,6 +288,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   // This is called once per animation frame
   const update = () => {
     if (running) {
+      requestAnimationFrame(update);
       if (updating) {
         physicsTick();
       }
@@ -300,7 +300,6 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
       }
       lastFrameStartTime = frameStartTime;
       somethingChangedThisFrame = false;
-      requestAnimationFrame(update);
     } else {
       clearCanvas();
       canvas = null;
@@ -317,9 +316,9 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
   // fit to whole window except for text at top
   const fromTop = canvas.getBoundingClientRect().top + (window.pageYOffset || document.documentElement.scrollTop);
   canvas.height = window.innerHeight - fromTop;
-  let canvasInnerHeight = canvas.height;
-  let canvasOffsetX = canvas.height / 2;
-  let canvasOffsetY = canvas.width / 2;
+  let canvasOffsetX = canvas.width / 2;
+  let canvasOffsetY = canvas.height / 2;
+  let canvasInnerHeight = canvas.height * 0.25;
 
   let fpsCounterElement = document.getElementById("fps");
   let statusElement = document.getElementById("status");
@@ -436,7 +435,7 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
           for (let match of matches) {
             const targetPageId = pageTitleToIdx[match[1]];
             if (targetPageId !== undefined) {
-              const edgeHash = pageId + targetPageId * 1000000; // hash is bit concat id numbers
+              const edgeHash = Math.max(pageId, targetPageId) + Math.min(targetPageId, pageId) * 1000000; // hash is bit concat id numbers
               if (edgeHashSet[edgeHash] === undefined) {
                 edgeHashSet[edgeHash] = true;
                 nodes[pageId].numConnections += 1;
@@ -462,12 +461,14 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
     });
 
     for (let node of nodes) {
-      node.mass = Math.pow(node.numConnections, 0.25) * 0.5 + 1;
+      node.mass = Math.pow(Math.max(1, node.numConnections), 0.25) * 0.5 + 1;
       node.inverseMass = 1 / node.mass;
-      // measure text width up front, not in loop. This requires ctx font to be already set.
-      ctx.font = `bold ${node.mass * 0.015}px Verdana`;
+      node.font = `bold ${node.mass * 0.015}px Verdana`;
+      // measure text width up front, not in loop.
+      ctx.font = node.font;
       node.textWidth = ctx.measureText(node.title).width;
       node.inverseTextWidth = 0.4;
+      console.log(node.inverseTextWidth);
     }
 
     // console.log(`let nodes = ${JSON.stringify(nodes)};
@@ -495,8 +496,6 @@ const displayRoamJSONGraph = ({ canvas, roamJSON, precomputedGraph }) => {
 
   if (startupTimeElement) startupTimeElement.innerText = Math.round(performance.now() - graphJsStartTime) * 0.001;
   if (statusElement) statusElement.innerText = "Running";
-
-  setTimeout(() => (updating = false), 5000);
 
   // return function to exit graph
   return () => (running = false);
