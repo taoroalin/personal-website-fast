@@ -4,11 +4,11 @@ const regexFalse = /^false(?![.*+!\-_?$$%&=<>:#a-zA-Z0-9])[ \t\r\n,]*/; // make 
 const regexTrue = /^true(?![.*+!\-_?$$%&=<>:#a-zA-Z0-9])[ \t\r\n,]*/;
 const regexNil = /^nil(?![.*+!\-_?$$%&=<>:#a-zA-Z0-9])[ \t\r\n,]*/;
 
-const regexSymbol = /^(([.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|([*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?(([.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|([*!_?$$%&=<>a-zA-Z]))[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*[ \t\r\n,]*/;
-const regexKeyword = /^:(([.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|([*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?(([.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|([*!_?$$%&=<>a-zA-Z]))[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*[ \t\r\n,]*/;
-const regexTag = /^#([a-zA-Z][.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?(([.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|([*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*)[ \t\r\n,]*/;
+const regexSymbol = /^((?:[.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|(?:[*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?((?:[.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|(?:[*!_?$$%&=<>a-zA-Z]))[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*[ \t\r\n,]*/;
+const regexKeyword = /^:((?:[.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|(?:[*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?((?:[.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|(?:[*!_?$$%&=<>a-zA-Z]))[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*[ \t\r\n,]*/;
+const regexTag = /^#([a-zA-Z][.*+!\-_?$$%&=<>:#a-zA-Z0-9]*\/)?((?:[.+-][.*+!\-_?$$%&=<>a-zA-Z:#])|(?:[*!_?$$%&=<>a-zA-Z])[.*+!\-_?$$%&=<>:#a-zA-Z0-9]*)[ \t\r\n,]*/;
 
-const regexInteger = /^[+-]?(0|([1-9][0-9]*))(N)?[ \t\r\n,]*/;
+const regexInteger = /^([+-]?(?:0|(?:[1-9][0-9]*))(N)?)[ \t\r\n,]*/;
 
 /**
  * capturing groups ( all int parts include the optional +- at the front )
@@ -21,9 +21,15 @@ const regexInteger = /^[+-]?(0|([1-9][0-9]*))(N)?[ \t\r\n,]*/;
  */
 const regexFloat = /^([+-]?(?:0|(?:[1-9][0-9]*)))(?:(?:\.([0-9]+)[eE]([+-]?(?:0|(?:[1-9][0-9]*))))|(?:(?:\.([0-9]+))|(?:[eE]([+-]?(?:0|(?:[1-9][0-9]*))))))(M?)[ \t\r\n,]*/;
 
-let textLeft = `nil false (true {1111.232 hi} symbol-hello)`;
+const regexString = /^"((?:(?:\\.)|[^"])+)"[ \t\r\n,]*/;
 
-const parseEdn = (text) => {
+const regexLineComment = /^;[^\n]*\r?\n[ \t\r\n,]*/;
+
+let textLeftOld = `string nil false (true #hi {1111.232 hi} symbol-hello) [vector]`;
+let textLeft = `"string" "stringey" "hello string" ("str str" "ssstr") {"h" "o"} ["hhh" "hhh"]`;
+let textLeftKeyword = `:keyword/keyey :kwddd :hihihi :zzzzz :hihi/lolooo :hhh :zzd :erg :hihihi :szngweh`;
+
+const parseEdn = (text, tagTransforms = {}) => {
   let textLeft = text;
   const tree = { kids: [], type: "list" };
   const stack = [tree];
@@ -41,6 +47,7 @@ const parseEdn = (text) => {
       stack.push(newList);
       if (tag !== null) {
         newList.tag = tag;
+        tag = null;
       }
       continue;
     }
@@ -64,6 +71,7 @@ const parseEdn = (text) => {
       stack.push(newVector);
       if (tag !== null) {
         newVector.tag = tag;
+        tag = null;
       }
       continue;
     }
@@ -87,6 +95,7 @@ const parseEdn = (text) => {
       stack.push(newMap);
       if (tag !== null) {
         newMap.tag = tag;
+        tag = null;
       }
       continue;
     }
@@ -107,6 +116,13 @@ const parseEdn = (text) => {
       if (tag !== null) {
         throw new Error("tag by itself");
       }
+      continue;
+    }
+    match = textLeft.match(regexString);
+    if (match !== null) {
+      match[0].type = "string";
+      stack[stack.length - 1].kids.push(match[1]);
+      textLeft = textLeft.substring(match[0].length);
       continue;
     }
     match = textLeft.match(regexNil);
@@ -152,6 +168,7 @@ const parseEdn = (text) => {
       textLeft = textLeft.substring(match[0].length);
       if (tag !== null) {
         match[0].tag = tag;
+        tag = null;
       }
       continue;
     }
@@ -162,19 +179,28 @@ const parseEdn = (text) => {
       textLeft = textLeft.substring(match[0].length);
       if (tag !== null) {
         match[0].tag = tag;
+        tag = null;
       }
       continue;
     }
-    tag = null;
+    match = textLeft.match(regexLineComment);
+    if (match !== null) {
+      if (tag !== null) {
+        throw new Error(`tags can't go before comments`); //@bug
+      }
+      textLeft = textLeft.substring(match[0].length);
+      continue;
+    }
     match = textLeft.match(regexTag);
     if (match !== null) {
       if (tag !== null) {
-        throw new Error(`tags go before values to modify them. They can't go before tags`);
+        throw new Error(`tags go before values to modify them. They can't go before tags`); //@bug
       }
       tag = match[0];
       textLeft = textLeft.substring(match[0].length);
       continue;
     }
+    throw new Error(`cannot parse ${textLeft}`);
   }
   return tree;
 };
@@ -183,8 +209,14 @@ console.log(parseEdn(textLeft));
 // for (let i = 0; i < 10000; i++) {
 //   parseEdn(textLeft);
 // }
-const stime = performance.now();
-for (let i = 0; i < 10000; i++) {
-  parseEdn(textLeft);
+let longstring = "";
+while (longstring.length < 500000) {
+  longstring += textLeft;
 }
+console.log(longstring);
+const stime = performance.now();
+parseEdn(longstring);
 console.log(`took ${performance.now() - stime}`);
+for (let i = 0; i < 10000; i++) {
+  //parseEdn(textLeft);
+}
